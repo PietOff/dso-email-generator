@@ -6,11 +6,16 @@ function App() {
   const [baseStory, setBaseStory] = useState("De DSO-lijst geeft inzicht in de voortgang van de implementatie van het Digitaal Stelsel Omgevingswet (DSO). We monitoren hierbij de scores op het gebied van dierlijke mest, regelanalist, OLO-activiteiten en het omgevingsplan.");
   const [selectedGemeente, setSelectedGemeente] = useState('');
   const [figures, setFigures] = useState({ kpi1: '', kpi2: '', kpi3: '', kpi4: '' });
-  const [options, setOptions] = useState({ omgevingsplan: false, escalatie: false });
+  const [options, setOptions] = useState({
+    toon: 'professioneel',
+    doel: 'eerste-contact',
+    afzender: '',
+  });
   const [generatedOutput, setGeneratedOutput] = useState("");
   const [activeTab, setActiveTab] = useState('prompt');
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showBaseStory, setShowBaseStory] = useState(false);
 
   const gemeenteNames = useMemo(() => getAllGemeenteNames(), []);
 
@@ -26,6 +31,21 @@ function App() {
     return gemeenteData.find(g => g.bestuursorgaan === selectedGemeente);
   }, [selectedGemeente]);
 
+  // Compute score summary
+  const scoreSummary = useMemo(() => {
+    if (!selectedData) return null;
+    const scores = [
+      { label: 'Bruidsschat', value: parseInt(figures.kpi1) || 0 },
+      { label: 'Regelanalist', value: parseInt(figures.kpi2) || 0 },
+      { label: 'OLO', value: parseInt(figures.kpi3) || 0 },
+      { label: 'Omgevingsplan', value: parseInt(figures.kpi4) || 0 },
+    ];
+    const opportunities = scores.filter(s => s.value >= 4);
+    const warnings = scores.filter(s => s.value >= 2 && s.value < 4);
+    const good = scores.filter(s => s.value < 2);
+    return { opportunities, warnings, good, total: parseInt(selectedData.totaleScore) || 0 };
+  }, [selectedData, figures]);
+
   const handleSelectGemeente = (name) => {
     setSelectedGemeente(name);
     setSearchQuery(name);
@@ -37,19 +57,11 @@ function App() {
         kpi3: data.scoreOLO || '',
         kpi4: data.omgevingsplanScore || '',
       });
-      setOptions(prev => ({
-        ...prev,
-        omgevingsplan: data.omgevingsplanScore === '5',
-      }));
     }
   };
 
   const handleFigureChange = (e) => {
     setFigures({ ...figures, [e.target.name]: e.target.value });
-  };
-
-  const handleOptionChange = (e) => {
-    setOptions({ ...options, [e.target.name]: e.target.checked });
   };
 
   const generate = (type) => {
@@ -76,7 +88,7 @@ function App() {
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent">
             DSO Email Generator
           </h1>
-          <p className="text-slate-500 mt-2">Genereer gepersonaliseerde emails op basis van DSO-scores</p>
+          <p className="text-slate-500 mt-2">abelTalent & Tafelberg Advies — Gepersonaliseerde emails op basis van DSO-scores</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -113,18 +125,40 @@ function App() {
                 )}
               </div>
 
-              {/* Selected info badge */}
-              {selectedData && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${parseInt(selectedData.totaleScore) >= 15 ? 'bg-red-100 text-red-700' :
-                    parseInt(selectedData.totaleScore) >= 8 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                    Score: {selectedData.totaleScore}/20 {parseInt(selectedData.totaleScore) >= 15 ? '(veel kansen)' : parseInt(selectedData.totaleScore) >= 8 ? '(enkele kansen)' : '(goed op weg)'}
-                  </span>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                    {selectedData.contactpersonen?.length || 0} contactpersonen
-                  </span>
+              {/* Score Summary Panel */}
+              {scoreSummary && (
+                <div className="mt-4 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${scoreSummary.total >= 15 ? 'bg-red-100 text-red-700' :
+                      scoreSummary.total >= 8 ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                      Score: {selectedData.totaleScore}/20 {scoreSummary.total >= 15 ? '(veel kansen)' : scoreSummary.total >= 8 ? '(enkele kansen)' : '(goed op weg)'}
+                    </span>
+                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                      {selectedData.contactpersonen?.length || 0} contactpersonen
+                    </span>
+                  </div>
+
+                  {/* Quick opportunities overview */}
+                  {scoreSummary.opportunities.length > 0 && (
+                    <div className="bg-red-50 rounded-lg p-2.5 border border-red-100">
+                      <span className="text-xs font-semibold text-red-700">🔴 Kansen: </span>
+                      <span className="text-xs text-red-600">{scoreSummary.opportunities.map(s => s.label).join(', ')}</span>
+                    </div>
+                  )}
+                  {scoreSummary.warnings.length > 0 && (
+                    <div className="bg-yellow-50 rounded-lg p-2.5 border border-yellow-100">
+                      <span className="text-xs font-semibold text-yellow-700">⚠️ Aandacht: </span>
+                      <span className="text-xs text-yellow-600">{scoreSummary.warnings.map(s => s.label).join(', ')}</span>
+                    </div>
+                  )}
+                  {scoreSummary.good.length > 0 && (
+                    <div className="bg-green-50 rounded-lg p-2.5 border border-green-100">
+                      <span className="text-xs font-semibold text-green-700">✅ Goed: </span>
+                      <span className="text-xs text-green-600">{scoreSummary.good.map(s => s.label).join(', ')}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -165,27 +199,75 @@ function App() {
               </div>
             </div>
 
-            {/* Base Story + Context */}
+            {/* Email Settings */}
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
               <h2 className="text-lg font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <span className="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-sm font-bold">3</span>
-                Standaard Verhaal & Context
+                Email Instellingen
               </h2>
-              <textarea
-                className="w-full h-28 p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm mb-4 resize-none"
-                value={baseStory}
-                onChange={(e) => setBaseStory(e.target.value)}
-                placeholder="Voer hier het basisverhaal in..."
-              />
-              <div className="flex gap-4 flex-wrap">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="omgevingsplan" checked={options.omgevingsplan} onChange={handleOptionChange} className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4" />
-                  <span className="text-sm">Omgevingsplan aanwezig</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="escalatie" checked={options.escalatie} onChange={handleOptionChange} className="rounded text-red-600 focus:ring-red-500 w-4 h-4" />
-                  <span className="text-sm">Escalatie niveau</span>
-                </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                {/* Sender Name */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Afzender</label>
+                  <input
+                    type="text"
+                    value={options.afzender}
+                    onChange={(e) => setOptions({ ...options, afzender: e.target.value })}
+                    placeholder="Jouw naam..."
+                    className="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                  />
+                </div>
+
+                {/* Tone */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Toon</label>
+                  <select
+                    value={options.toon}
+                    onChange={(e) => setOptions({ ...options, toon: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 transition-all text-sm bg-white"
+                  >
+                    <option value="informeel">Informeel & toegankelijk</option>
+                    <option value="professioneel">Professioneel & adviserend</option>
+                    <option value="urgent">Urgent & zakelijk</option>
+                  </select>
+                </div>
+
+                {/* Goal */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Doel</label>
+                  <select
+                    value={options.doel}
+                    onChange={(e) => setOptions({ ...options, doel: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 transition-all text-sm bg-white"
+                  >
+                    <option value="eerste-contact">Eerste contact / introductie</option>
+                    <option value="follow-up">Follow-up na eerder contact</option>
+                    <option value="quickscan">Quickscan aanbieden</option>
+                    <option value="workshop">Workshop uitnodigen</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Collapsible base story */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowBaseStory(!showBaseStory)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <span>📝 Standaard Verhaal {showBaseStory ? 'verbergen' : 'aanpassen'}</span>
+                  <span className="text-xs text-slate-400">{showBaseStory ? '▲' : '▼'}</span>
+                </button>
+                {showBaseStory && (
+                  <div className="p-3">
+                    <textarea
+                      className="w-full h-24 p-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
+                      value={baseStory}
+                      onChange={(e) => setBaseStory(e.target.value)}
+                      placeholder="Voer hier het basisverhaal in..."
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -218,10 +300,10 @@ function App() {
                 {generatedOutput && (
                   <button
                     onClick={copyToClipboard}
-                    className={`text-sm font-medium px-3 py-1 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'text-blue-600 hover:bg-blue-50'
+                    className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
                       }`}
                   >
-                    {copied ? '✓ Gekopieerd!' : 'Kopieer'}
+                    {copied ? '✓ Gekopieerd!' : '📋 Kopieer'}
                   </button>
                 )}
               </div>

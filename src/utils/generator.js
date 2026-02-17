@@ -35,10 +35,21 @@
  */
 export function generatePrompt(baseStory, figures, options, selectedData) {
     const { kpi1, kpi2, kpi3, kpi4 } = figures;
-    const context = Object.entries(options)
-        .filter(([_, val]) => val)
-        .map(([key]) => key === 'omgevingsplan' ? 'Omgevingsplan is aanwezig' : 'Escalatie niveau')
-        .join(", ");
+    const toon = options.toon || 'professioneel';
+    const doel = options.doel || 'eerste-contact';
+    const afzender = options.afzender || '[Naam]';
+
+    const toonMap = {
+        'informeel': 'Informeel en toegankelijk — schrijf alsof je een collega aanspreekt',
+        'professioneel': 'Professioneel en adviserend — zakelijk maar warm',
+        'urgent': 'Urgent en zakelijk — benadruk de tijdsdruk en noodzaak'
+    };
+    const doelMap = {
+        'eerste-contact': 'Dit is een EERSTE CONTACT. Stel jezelf/abelTalent kort voor en wek interesse.',
+        'follow-up': 'Dit is een FOLLOW-UP na eerder contact. Verwijs kort naar het eerdere gesprek en kom met concrete voorstellen.',
+        'quickscan': 'Bied een GRATIS QUICKSCAN aan als call-to-action. Leg uit wat de quickscan inhoudt (korte analyse van hun DSO-gereedheid).',
+        'workshop': 'Nodig uit voor een WORKSHOP over de Omgevingswet-implementatie als call-to-action.'
+    };
 
     const gemeenteNaam = selectedData ? selectedData.bestuursorgaan : '[Gemeente]';
     const totaalScore = selectedData ? selectedData.totaleScore : 'N/B';
@@ -138,7 +149,9 @@ Totale score: ${totaalScore}/20 (HOGER = meer aandachtspunten / meer kansen)
 Gedetailleerde scores en interpretatie voor ${gemeenteNaam}:
 ${scoreInterpretation.join('\n\n')}
 
-Extra context: ${context || 'Geen'}.
+TOON: ${toonMap[toon]}
+DOEL: ${doelMap[doel]}
+AFZENDER: ${afzender} (gebruik deze naam in de afsluiting)
 
 Contactpersonen bij ${gemeenteNaam}:
 ${contactInfo}${keyRoles}
@@ -153,18 +166,23 @@ Schrijf een gepersonaliseerde, professionele email namens abelTalent gericht aan
   • OLO niet gedaan → samen kunnen we vergunningchecks en formulieren opstellen
   • Geen omgevingsplan → Tafelberg Advies ondersteunt bij omgevingsplanontwikkeling
 - Bij lage scores (0): complimenteer kort.
-- Toon: professioneel, behulpzaam, partnerschap — niet veroordelend of verkoopachtig.
-- Eindig met een concrete call-to-action (kennismakingsgesprek, quickscan, of workshop).
+- BELANGRIJK: Noem GEEN specifieke scores of cijfers in de email. De scores zijn intern. Verwijs naar de inhoud, niet naar nummers.
+- Schrijf als een vloeiende, persoonlijke email — geen opsommingstekens, geen emoji's, geen rapportstructuur.
+- Toon: ${toonMap[toon]}
+- ${doelMap[doel]}
+- Onderteken met: ${afzender}, abelTalent
 - Max 300 woorden.`;
 }
 
 /**
- * Generates a simple template-based email (Plan B).
+ * Generates a complete, ready-to-send email based on scores.
  */
 export function generateTemplate(baseStory, figures, options, selectedData) {
     const { kpi1, kpi2, kpi3, kpi4 } = figures;
     const gemeenteNaam = selectedData ? selectedData.bestuursorgaan : '[Gemeente]';
-    const totaalScore = selectedData ? parseInt(selectedData.totaleScore) : 0;
+    const afzender = options.afzender || '[Naam]';
+    const isInformeel = options.toon === 'informeel';
+    const isUrgent = options.toon === 'urgent';
 
     // Find key contact
     let aanspreekpunt = '';
@@ -181,18 +199,38 @@ export function generateTemplate(baseStory, figures, options, selectedData) {
         }
     }
 
-    const aanhef = aanspreekpunt ? 'Beste ' + aanspreekpunt : 'Beste contactpersoon van ' + gemeenteNaam;
+    const aanhef = isInformeel
+        ? (aanspreekpunt ? 'Hoi ' + aanspreekpunt : 'Hallo')
+        : (aanspreekpunt ? 'Beste ' + aanspreekpunt : 'Geachte heer/mevrouw');
 
-    // Build score paragraphs with company-specific offerings
-    const scoreParts = [];
+    // --- Build natural flowing paragraphs ---
+    const paragraphs = [];
 
-    // Dierlijke Mest / Bruidsschat
+    // Opening: base story + intro
+    if (options.doel === 'follow-up') {
+        paragraphs.push('Naar aanleiding van ons eerdere contact neem ik graag opnieuw contact met u op. ' + baseStory);
+    } else {
+        paragraphs.push(baseStory + (isInformeel
+            ? '\n\nIk neem contact met je op omdat we specifiek naar de situatie van ' + gemeenteNaam + ' hebben gekeken.'
+            : '\n\nGraag deel ik onze bevindingen specifiek voor ' + gemeenteNaam + ' met u.'));
+    }
+
+    // --- Score-based paragraphs as natural prose ---
+
+    // Collect what's good and what needs attention
+    const goedePunten = [];
+    const aandachtspunten = [];
+    const diensten = [];
+
+    // Bruidsschat
     if (kpi1 === '0' || kpi1 === 0) {
-        scoreParts.push("✅ **Bruidsschat (dierlijke mest):** De verplichte aanpassingen (zorgplicht, afstandseisen, vergunningplicht) zijn doorgevoerd. Goed geregeld!");
+        goedePunten.push('de bruidsschat-aanpassingen voor dierlijke mest correct zijn doorgevoerd');
     } else if (kpi1 === '5' || kpi1 === 5) {
-        scoreParts.push("🔴 **Bruidsschat (dierlijke mest):** De verplichte aanpassingen zijn nog niet doorgevoerd. Dit betreft o.a. de zorgplicht mestopslag (art. 22.44), afstandseisen geur (art. 22.114/22.117) en vergunningplicht (art. 22.267). Dit is wettelijk verplicht en moet vóór 2032 verwerkt zijn. abelTalent kan dit projectmatig en snel voor u oppakken met onze getrainde professionals.");
-    } else if (kpi1 !== '' && kpi1 !== null) {
-        scoreParts.push("⚠️ **Bruidsschat (dierlijke mest):** Score " + kpi1 + "/5. Er zijn nog verbeterpunten bij de verwerking van de bruidsschat.");
+        aandachtspunten.push('Uit onze analyse blijkt dat de verplichte bruidsschat-aanpassingen voor dierlijke mest nog niet zijn doorgevoerd bij ' + gemeenteNaam + '. Het gaat hierbij onder andere om de zorgplicht voor mestopslag, afstandseisen voor geur en de vergunningplicht voor grotere opslagen. Dit zijn wettelijk verplichte aanpassingen die vóór 1 januari 2032 verwerkt moeten zijn in het omgevingsplan.');
+        diensten.push('abelTalent kan de bruidsschat-aanpassingen projectmatig en efficiënt voor u doorvoeren met onze getrainde professionals');
+    } else if (kpi1 !== '' && kpi1 !== null && parseInt(kpi1) > 0) {
+        aandachtspunten.push('Op het gebied van de bruidsschat-aanpassingen voor dierlijke mest zien we dat er nog verbeterpunten zijn. Niet alle verplichte aanpassingen zijn volledig doorgevoerd.');
+        diensten.push('abelTalent kan helpen bij het afronden van de openstaande bruidsschat-aanpassingen');
     }
 
     // Regelanalist
@@ -204,68 +242,106 @@ export function generateTemplate(baseStory, figures, options, selectedData) {
             );
             if (ra) raNaam = ' (' + ra.naam + ')';
         }
-        scoreParts.push("✅ **Regelanalist:** Er is een regelanalist actief" + raNaam + ". Goed geregeld! Mocht u behoefte hebben aan extra ondersteuning of interbestuurlijke afstemming, dan kan onze partner Tafelberg Advies hierbij helpen.");
+        goedePunten.push('er een regelanalist actief is' + raNaam + ' die de toepasbare regels beheert');
     } else if (kpi2 === '5' || kpi2 === 5) {
-        scoreParts.push("🔴 **Regelanalist:** Er is nog geen regelanalist actief. Hierdoor ontbreken toepasbare regels (vragenbomen) in het Omgevingsloket en kunnen burgers geen online vergunningcheck doen. Onze partner Tafelberg Advies kan ervaren regelanalisten inzetten — van junior tot senior, ook op afroepbasis. Daarnaast biedt Tafelberg een praktijkgerichte opleiding (e-learning + praktijkdag) als u intern capaciteit wilt opbouwen.");
-    } else if (kpi2 !== '' && kpi2 !== null) {
-        scoreParts.push("⚠️ **Regelanalist:** Score " + kpi2 + "/5. Er is ruimte voor verbetering op het gebied van toepasbare regels.");
+        aandachtspunten.push('Daarnaast valt op dat er bij ' + gemeenteNaam + ' nog geen regelanalist actief is. Een regelanalist is essentieel voor het vertalen van juridische regels naar toepasbare regels — de vragenbomen die burgers en bedrijven gebruiken in het Omgevingsloket. Zonder deze rol kunnen inwoners geen online vergunningcheck doen.');
+        diensten.push('onze partner Tafelberg Advies ervaren regelanalisten kan leveren, van junior tot senior niveau, ook op afroepbasis. Daarnaast biedt Tafelberg een praktijkgerichte opleiding als u intern capaciteit wilt opbouwen');
+    } else if (kpi2 !== '' && kpi2 !== null && parseInt(kpi2) > 0) {
+        aandachtspunten.push('Op het vlak van regelanalyse en toepasbare regels zien we dat er nog stappen te zetten zijn om het Omgevingsloket optimaal in te richten voor inwoners.');
+        diensten.push('Tafelberg Advies kan ondersteuning bieden bij het verbeteren van de toepasbare regels');
     }
 
     // OLO Activiteiten
     if (kpi3 === '0' || kpi3 === 0) {
-        scoreParts.push("✅ **OLO-activiteiten (VNG topactiviteiten):** Alle aanbevolen vergunningchecks en formulieren zijn beschikbaar. Uitstekend voor de dienstverlening!");
+        goedePunten.push('alle VNG-aanbevolen topactiviteiten beschikbaar zijn in het Omgevingsloket');
     } else if (kpi3 === '5' || kpi3 === 5) {
-        scoreParts.push("🔴 **OLO-activiteiten (VNG topactiviteiten):** Er zijn nog geen activiteiten beschikbaar in het Omgevingsloket. Burgers en bedrijven kunnen daardoor geen online vergunningcheck doen voor veelvoorkomende activiteiten (bouwen, slopen, milieu). abelTalent en Tafelberg Advies kunnen gezamenlijk de vergunningchecks, aanvraagformulieren en maatregelen op maat voor u opstellen.");
+        aandachtspunten.push('Wat verder opvalt is dat er nog geen vergunningchecks beschikbaar zijn in het Omgevingsloket voor de door de VNG aanbevolen topactiviteiten. Dit zijn veelvoorkomende activiteiten zoals bouwen, slopen en milieuactiviteiten. Hierdoor moeten burgers en bedrijven nu telefonisch of per mail contact opnemen, wat de dienstverlening belemmert.');
+        diensten.push('abelTalent en Tafelberg Advies kunnen gezamenlijk de vergunningchecks, aanvraagformulieren en maatregelen op maat voor deze topactiviteiten opstellen');
     } else if (kpi3 === '3' || kpi3 === 3) {
-        scoreParts.push("⚠️ **OLO-activiteiten:** Een deel is gedaan, maar er ontbreken nog activiteiten in het Omgevingsloket. Wij kunnen de resterende vergunningchecks en formulieren verzorgen.");
-    } else if (kpi3 !== '' && kpi3 !== null) {
-        scoreParts.push("⚠️ **OLO-activiteiten:** Score " + kpi3 + "/5.");
+        aandachtspunten.push('In het Omgevingsloket zijn een aantal vergunningchecks beschikbaar, maar er ontbreken nog diverse VNG-aanbevolen topactiviteiten.');
+        diensten.push('wij de resterende vergunningchecks en formulieren voor u kunnen verzorgen');
+    } else if (kpi3 !== '' && kpi3 !== null && parseInt(kpi3) > 0) {
+        aandachtspunten.push('Op het gebied van OLO-activiteiten in het Omgevingsloket is er nog ruimte voor verbetering.');
     }
 
     // Omgevingsplan
     if (kpi4 === '0' || kpi4 === 0) {
-        scoreParts.push("✅ **Omgevingsplan:** Robuust omgevingsplan gepubliceerd. Uw gemeente loopt voorop! Complimenten.");
+        goedePunten.push('er een robuust omgevingsplan is gepubliceerd');
     } else if (kpi4 === '5' || kpi4 === 5) {
-        let opContact = '';
-        if (selectedData && selectedData.contactpersonen) {
-            const op = selectedData.contactpersonen.find(c =>
-                c.functie && (c.functie.toLowerCase().includes('omgevingsplan') ||
-                    c.functie.toLowerCase().includes('ruimtelijke ordening') ||
-                    c.functie.toLowerCase().includes('planoloog'))
-            );
-            if (op) opContact = ' (' + op.naam + ')';
-        }
-        scoreParts.push("🔴 **Omgevingsplan:** Er is nog geen omgevingsplan na de bruidsschat gepubliceerd — op \"Regels op de kaart\" zijn alleen hoofdstuk 1 en 22 zichtbaar." + opContact + " De deadline is 1 januari 2032. Onze partner Tafelberg Advies kan ondersteunen bij het opstellen van een actueel, toepasbaar en werkbaar omgevingsplan, afgestemd op uw specifieke situatie.");
+        aandachtspunten.push('Tot slot zien we dat ' + gemeenteNaam + ' nog geen omgevingsplan heeft gepubliceerd na de bruidsschat. Op "Regels op de kaart" zijn momenteel alleen hoofdstuk 1 en 22 zichtbaar. Gemeenten hebben tot 1 januari 2032 om het tijdelijke omgevingsplan om te zetten naar één integraal plan voor het hele grondgebied.');
+        diensten.push('Tafelberg Advies kan ondersteunen bij het ontwikkelen van een actueel en werkbaar omgevingsplan, afgestemd op de specifieke situatie van uw gemeente');
     } else if (kpi4 === '3' || kpi4 === 3) {
-        scoreParts.push("⚠️ **Omgevingsplan:** Deels gepubliceerd, maar nog niet compleet. Tafelberg Advies helpt graag bij de verdere ontwikkeling richting een integraal omgevingsplan.");
-    } else if (kpi4 !== '' && kpi4 !== null) {
-        scoreParts.push("⚠️ **Omgevingsplan:** Score " + kpi4 + "/5.");
+        aandachtspunten.push('Het omgevingsplan is deels gepubliceerd, maar nog niet compleet. Met de deadline van 2032 in het vooruitzicht is het raadzaam om hier vaart achter te zetten.');
+        diensten.push('Tafelberg Advies kan helpen bij de verdere ontwikkeling richting een integraal omgevingsplan');
+    } else if (kpi4 !== '' && kpi4 !== null && parseInt(kpi4) > 0) {
+        aandachtspunten.push('Het omgevingsplan is nog in ontwikkeling.');
     }
 
-    // Overall sentiment
-    let sentiment = "";
-    if (totaalScore <= 5) {
-        sentiment = "Over het geheel genomen is uw organisatie goed op weg met de Omgevingswet. Complimenten aan het hele team!";
-    } else if (totaalScore <= 13) {
-        sentiment = "Er zijn enkele aandachtspunten waar wij u graag bij ondersteunen. Met gerichte actie kunt u snel stappen zetten.";
-    } else {
-        sentiment = "Er liggen diverse kansen om de implementatie te verbeteren. Dit is niet ongewoon — veel gemeenten worstelen met de transitie. abelTalent en Tafelberg Advies denken graag met u mee.";
+    // --- Compose the good news paragraph ---
+    if (goedePunten.length > 0) {
+        if (goedePunten.length === 1) {
+            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Het is goed om te zien dat ') + goedePunten[0] + '.');
+        } else {
+            const laatste = goedePunten.pop();
+            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Het is goed om te zien dat ') + goedePunten.join(', ') + ' en ' + laatste + '. Complimenten daarvoor.');
+        }
     }
+
+    // --- Add attention points as flowing paragraphs ---
+    aandachtspunten.forEach(punt => {
+        paragraphs.push(punt);
+    });
+
+    // --- Diensten aanbod paragraph ---
+    if (diensten.length > 0) {
+        let dienstenParagraaf = '';
+        if (isUrgent) {
+            dienstenParagraaf = 'Gezien de tijdsdruk willen wij u erop wijzen dat ';
+        } else if (isInformeel) {
+            dienstenParagraaf = 'Mocht je hier hulp bij kunnen gebruiken: ';
+        } else {
+            dienstenParagraaf = 'Concreet kunnen wij u op de volgende manieren ondersteunen: ';
+        }
+
+        if (diensten.length === 1) {
+            dienstenParagraaf += diensten[0] + '.';
+        } else {
+            const laatsteDienst = diensten.pop();
+            dienstenParagraaf += diensten.join('. Daarnaast kan ') + '. Tot slot kan ' + laatsteDienst + '.';
+        }
+        paragraphs.push(dienstenParagraaf);
+    }
+
+    // --- Call to action based on goal ---
+    let cta = '';
+    if (options.doel === 'quickscan') {
+        cta = isInformeel
+            ? 'We bieden een gratis quickscan aan — een korte analyse van jullie DSO-gereedheid met concrete aanbevelingen. Lijkt je dat wat? Dan plan ik graag een moment in.'
+            : 'Wij bieden u graag een kosteloze quickscan aan: een beknopte analyse van uw DSO-gereedheid, inclusief concrete aanbevelingen. Heeft u hier interesse in? Dan plan ik graag een moment met u in.';
+    } else if (options.doel === 'workshop') {
+        cta = isInformeel
+            ? 'We organiseren binnenkort een praktijkgerichte workshop over de Omgevingswet-implementatie. Leuk als je erbij bent! Zal ik je de details sturen?'
+            : 'Binnenkort organiseren wij een praktijkgerichte workshop over de implementatie van de Omgevingswet. Ik nodig u hiervoor graag uit. Zal ik u de details toesturen?';
+    } else if (options.doel === 'follow-up') {
+        cta = isInformeel
+            ? 'Ik zou graag een vervolggesprek plannen om bovenstaande punten concreet te bespreken. Heb je komende week beschikbaarheid?'
+            : 'Graag zou ik een vervolggesprek plannen om bovenstaande bevindingen nader te bespreken. Heeft u komende weken beschikbaarheid voor een kort overleg?';
+    } else {
+        cta = isInformeel
+            ? 'Zullen we een keer (kort) bellen of koffiedrinken om de mogelijkheden te bespreken? Ik hoor het graag.'
+            : 'Ik kom graag een keer langs of plan een kort kennismakingsgesprek in om de mogelijkheden te bespreken. Wat past u het beste?';
+    }
+    paragraphs.push(cta);
+
+    // --- Compose final email ---
+    const groet = isInformeel ? 'Groet' : 'Met vriendelijke groet';
 
     return `${aanhef},
 
-${baseStory}
+${paragraphs.join('\n\n')}
 
-Specifiek voor ${gemeenteNaam} zien we het volgende (totaalscore: ${totaalScore || 'N/B'}/20):
-
-${scoreParts.join('\n\n')}
-
-${sentiment}
-
-${options.escalatie ? '⚠️ Let op: dit betreft een escalatiesituatie. Wij verzoeken u spoedig contact met ons op te nemen.\n\n' : ''}Wij helpen u graag verder. Zullen we een kennismakingsgesprek plannen om de mogelijkheden te bespreken?
-
-Met vriendelijke groet,
-[Naam]
+${groet},
+${afzender}
 abelTalent
 Kosterijland 70, 3981 AJ Bunnik
 +31 30 225 5660
