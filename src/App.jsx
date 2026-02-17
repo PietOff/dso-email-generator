@@ -116,11 +116,11 @@ function App() {
               {/* Selected info badge */}
               {selectedData && (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${parseInt(selectedData.totaleScore) >= 18 ? 'bg-green-100 text-green-700' :
-                    parseInt(selectedData.totaleScore) >= 13 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${parseInt(selectedData.totaleScore) >= 15 ? 'bg-red-100 text-red-700' :
+                    parseInt(selectedData.totaleScore) >= 8 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-green-100 text-green-700'
                     }`}>
-                    Totale Score: {selectedData.totaleScore}/20
+                    Score: {selectedData.totaleScore}/20 {parseInt(selectedData.totaleScore) >= 15 ? '(veel kansen)' : parseInt(selectedData.totaleScore) >= 8 ? '(enkele kansen)' : '(goed op weg)'}
                   </span>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                     {selectedData.contactpersonen?.length || 0} contactpersonen
@@ -137,10 +137,10 @@ function App() {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Dierlijke Mest Score', name: 'kpi1', max: 5 },
-                  { label: 'Regelanalist Score', name: 'kpi2', max: 5 },
-                  { label: 'Score OLO Activiteiten', name: 'kpi3', max: 5 },
-                  { label: 'Omgevingsplan Score', name: 'kpi4', max: 5 }
+                  { label: 'Bruidsschat / Dierlijke Mest', name: 'kpi1', max: 5, hint: '5=niet aangepast, 0=aangepast' },
+                  { label: 'Regelanalist', name: 'kpi2', max: 5, hint: '5=geen regelanalist, 0=wel' },
+                  { label: 'OLO Activiteiten', name: 'kpi3', max: 5, hint: '5=niets gedaan, 0=alles gedaan' },
+                  { label: 'Omgevingsplan', name: 'kpi4', max: 5, hint: '5=geen plan, 0=robuust plan' }
                 ].map((field) => (
                   <div key={field.name} className="relative">
                     <label className="block text-xs font-medium text-slate-500 mb-1">{field.label}</label>
@@ -153,9 +153,10 @@ function App() {
                       onChange={handleFigureChange}
                       className="w-full p-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                     />
+                    <span className="block text-[10px] text-slate-400 mt-0.5">{field.hint}</span>
                     {figures[field.name] !== '' && (
-                      <div className={`absolute top-0 right-2 w-2.5 h-2.5 rounded-full ${parseInt(figures[field.name]) >= 5 ? 'bg-green-400' :
-                        parseInt(figures[field.name]) >= 3 ? 'bg-yellow-400' :
+                      <div className={`absolute top-0 right-2 w-2.5 h-2.5 rounded-full ${parseInt(figures[field.name]) === 0 ? 'bg-green-400' :
+                        parseInt(figures[field.name]) <= 3 ? 'bg-yellow-400' :
                           'bg-red-400'
                         }`} />
                     )}
