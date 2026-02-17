@@ -117,8 +117,8 @@ function App() {
               {selectedData && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${parseInt(selectedData.totaleScore) >= 18 ? 'bg-green-100 text-green-700' :
-                      parseInt(selectedData.totaleScore) >= 13 ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
+                    parseInt(selectedData.totaleScore) >= 13 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
                     }`}>
                     Totale Score: {selectedData.totaleScore}/20
                   </span>
@@ -155,8 +155,8 @@ function App() {
                     />
                     {figures[field.name] !== '' && (
                       <div className={`absolute top-0 right-2 w-2.5 h-2.5 rounded-full ${parseInt(figures[field.name]) >= 5 ? 'bg-green-400' :
-                          parseInt(figures[field.name]) >= 3 ? 'bg-yellow-400' :
-                            'bg-red-400'
+                        parseInt(figures[field.name]) >= 3 ? 'bg-yellow-400' :
+                          'bg-red-400'
                         }`} />
                     )}
                   </div>
@@ -234,12 +234,15 @@ function App() {
             {selectedData && selectedData.contactpersonen && selectedData.contactpersonen.length > 0 && (
               <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
                 <h2 className="text-lg font-bold text-slate-800 mb-3">
-                  👤 Contactpersonen
+                  👤 Contactpersonen ({selectedData.contactpersonen.length})
                 </h2>
-                <div className="space-y-1.5 max-h-48 overflow-auto">
-                  {selectedData.contactpersonen.map((name, i) => (
-                    <div key={i} className="text-sm text-slate-600 px-3 py-1.5 bg-slate-50 rounded-lg">
-                      {name}
+                <div className="space-y-1.5 max-h-64 overflow-auto">
+                  {selectedData.contactpersonen.map((contact, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg gap-2">
+                      <span className="text-sm font-medium text-slate-700">{contact.naam}</span>
+                      {contact.functie && (
+                        <span className="text-xs text-slate-400 text-right flex-shrink-0 max-w-[50%] truncate" title={contact.functie}>{contact.functie}</span>
+                      )}
                     </div>
                   ))}
                 </div>

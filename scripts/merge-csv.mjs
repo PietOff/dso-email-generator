@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 // Read CSV files
 const scoresRaw = fs.readFileSync(path.join(__dirname, 'Scores regelanalist gemeenten.csv'), 'utf-8');
-const contactsRaw = fs.readFileSync(path.join(__dirname, 'Contactpersonen gemeenten.csv'), 'utf-8');
+const functiesRaw = fs.readFileSync(path.join(__dirname, 'Functies.csv'), 'utf-8');
 
 // Parse CSV (handle quoted fields with commas)
 function parseCSVLine(line) {
@@ -31,7 +31,6 @@ function parseCSVLine(line) {
 
 // Parse scores
 const scoresLines = scoresRaw.replace(/\r/g, '').split('\n').filter(l => l.trim());
-const scoresHeader = parseCSVLine(scoresLines[0]);
 const scoresData = {};
 
 for (let i = 1; i < scoresLines.length; i++) {
@@ -48,17 +47,20 @@ for (let i = 1; i < scoresLines.length; i++) {
     };
 }
 
-// Parse contacts
-const contactsLines = contactsRaw.replace(/\r/g, '').split('\n').filter(l => l.trim());
+// Parse Functies (contains name + functie per bestuursorgaan)
+const functiesLines = functiesRaw.replace(/\r/g, '').split('\n').filter(l => l.trim());
 const contactsMap = {};
 
-for (let i = 1; i < contactsLines.length; i++) {
-    const cols = parseCSVLine(contactsLines[i]);
+for (let i = 1; i < functiesLines.length; i++) {
+    const cols = parseCSVLine(functiesLines[i]);
     const org = cols[0];
     const name = cols[1];
+    const functie = cols[2] || '';
     if (!org) continue;
     if (!contactsMap[org]) contactsMap[org] = [];
-    if (name) contactsMap[org].push(name);
+    if (name) {
+        contactsMap[org].push({ naam: name, functie: functie });
+    }
 }
 
 // Merge
@@ -79,7 +81,7 @@ merged.sort((a, b) => a.bestuursorgaan.localeCompare(b.bestuursorgaan));
 
 // Write as JS module
 const output = `// Auto-generated from CSV merge
-// Source: "Scores regelanalist gemeenten.csv" + "Contactpersonen gemeenten.csv"
+// Source: "Scores regelanalist gemeenten.csv" + "Functies.csv"
 // Generated: ${new Date().toISOString()}
 
 export const gemeenteData = ${JSON.stringify(merged, null, 2)};
@@ -98,4 +100,4 @@ fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, output, 'utf-8');
 console.log('Merged ' + merged.length + ' organizations into ' + outPath);
 console.log('  - Scores entries: ' + Object.keys(scoresData).length);
-console.log('  - Contact entries: ' + Object.keys(contactsMap).length);
+console.log('  - Contact entries (with functies): ' + Object.keys(contactsMap).length);
