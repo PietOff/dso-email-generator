@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
+import { fetchContent, clearContentCache } from './utils/contentService';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
 function App() {
@@ -16,8 +17,38 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [showBaseStory, setShowBaseStory] = useState(false);
+  const [sheetContent, setSheetContent] = useState(null);
+  const [contentStatus, setContentStatus] = useState('loading'); // loading, loaded, error
 
   const gemeenteNames = useMemo(() => getAllGemeenteNames(), []);
+
+  const loadContent = async () => {
+    setContentStatus('loading');
+    try {
+      const content = await fetchContent();
+      if (content) {
+        setSheetContent(content);
+        setContentStatus('loaded');
+        if (content.algemeen && content.algemeen.standaard_verhaal) {
+          setBaseStory(content.algemeen.standaard_verhaal);
+        }
+      } else {
+        setContentStatus('error');
+      }
+    } catch {
+      setContentStatus('error');
+    }
+  };
+
+  const refreshContent = () => {
+    clearContentCache();
+    loadContent();
+  };
+
+  // Load content from Google Sheets on startup
+  useEffect(() => {
+    loadContent();
+  }, []);
 
   const filteredGemeenten = useMemo(() => {
     if (!searchQuery) return gemeenteNames.slice(0, 20);
@@ -65,7 +96,7 @@ function App() {
   };
 
   const generate = () => {
-    setGeneratedOutput(generateEmail(baseStory, figures, options, selectedData, selectedContact));
+    setGeneratedOutput(generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent));
   };
 
   const copyToClipboard = () => {
@@ -83,6 +114,19 @@ function App() {
             DSO Email Generator
           </h1>
           <p className="text-slate-500 mt-2">AbelTalent & Tafelberg Advies — Gepersonaliseerde emails op basis van DSO-scores</p>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${contentStatus === 'loaded' ? 'bg-green-100 text-green-700' :
+              contentStatus === 'loading' ? 'bg-blue-100 text-blue-700' :
+                'bg-orange-100 text-orange-700'
+              }`}>
+              {contentStatus === 'loaded' ? '✓ Google Sheet verbonden' :
+                contentStatus === 'loading' ? '⏳ Content laden...' :
+                  '⚠️ Fallback modus (offline)'}
+            </span>
+            <button onClick={refreshContent} className="text-xs text-blue-500 hover:text-blue-700 underline" title="Ververs content vanuit Google Sheet">
+              🔄 Ververs
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
