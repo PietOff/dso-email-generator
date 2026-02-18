@@ -24,7 +24,7 @@ function parseGoogleJson(text) {
     const rows = (data.table.rows || []).map(row => {
         const obj = {};
         row.c.forEach((cell, i) => {
-            obj[headers[i]] = cell ? (cell.v != null ? String(cell.v) : '') : '';
+            obj[headers[i]] = cell ? (cell.f != null ? cell.f : (cell.v != null ? String(cell.v) : '')) : '';
         });
         return obj;
     });
