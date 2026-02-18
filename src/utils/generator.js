@@ -64,7 +64,9 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
     // OPENING — Base story + context
     // ═══════════════════════════════════════════════════
     if (options.doel === 'follow-up') {
-        paragraphs.push('Naar aanleiding van ons eerdere contact neem ik graag opnieuw contact met u op. ' + baseStory);
+        paragraphs.push(isInformeel
+            ? 'Naar aanleiding van ons eerdere contact neem ik graag nog een keer contact met je op. ' + baseStory
+            : 'Naar aanleiding van ons eerdere contact neem ik graag opnieuw contact met u op. ' + baseStory);
     } else {
         paragraphs.push(baseStory + (isInformeel
             ? '\n\nIk neem contact met je op omdat we specifiek naar de situatie van ' + gemeenteNaam + ' hebben gekeken.'
@@ -161,11 +163,11 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
         if (kpi1Val === 0) {
             goedePunten.push('de bruidsschat-aanpassingen voor dierlijke mest correct zijn doorgevoerd');
         } else if (kpi1Val >= 4) {
-            aandachtspunten.push('Uit onze analyse blijkt dat de verplichte bruidsschat-aanpassingen voor dierlijke mest nog niet of nauwelijks zijn doorgevoerd in het omgevingsplan. Dit zijn wettelijk verplichte aanpassingen die vóór 1 januari 2032 verwerkt moeten zijn. Het niet tijdig doorvoeren kan leiden tot juridische kwetsbaarheid bij vergunningbesluiten.');
-            diensten.push('AbelTalent kan de bruidsschat-aanpassingen projectmatig doorvoeren met SIS8020, tot 6x sneller dan handmatige verwerking');
+            aandachtspunten.push('Op basis van de beschikbare gegevens zien wij dat de verplichte bruidsschat-aanpassingen voor dierlijke mest nog niet of nauwelijks zijn doorgevoerd in het omgevingsplan. Dit zijn wettelijk verplichte aanpassingen die vóór 1 januari 2032 verwerkt moeten zijn in het omgevingsplan.');
+            diensten.push('wij deze bruidsschat-aanpassingen projectmatig kunnen doorvoeren, waarbij onze tooling het proces aanzienlijk versnelt');
         } else if (kpi1Val >= 2) {
             aandachtspunten.push('Op het gebied van bruidsschat-aanpassingen voor dierlijke mest zijn er nog stappen te zetten. Een deel is doorgevoerd, maar de implementatie is nog niet volledig.');
-            diensten.push('AbelTalent kan de resterende bruidsschat-aanpassingen efficiënt doorvoeren met SIS8020');
+            diensten.push('wij de resterende bruidsschat-aanpassingen efficiënt kunnen doorvoeren');
         } else if (kpi1Val === 1) {
             goedePunten.push('de bruidsschat-aanpassingen voor dierlijke mest grotendeels zijn doorgevoerd');
         }
@@ -176,8 +178,8 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
         if (kpi2Numeric === 0) {
             goedePunten.push('er een regelanalist actief is binnen de organisatie');
         } else {
-            aandachtspunten.push('Er is momenteel nog geen regelanalist actief binnen de organisatie. Een regelanalist is essentieel voor het vertalen van het juridische omgevingsplan naar toepasbare regels in het Omgevingsloket. Zonder regelanalist is het risico groot dat vergunningchecks niet of niet correct werken voor burgers en bedrijven.');
-            diensten.push('via ons ServiceTeam Regelanalisten kunnen we direct een ervaren regelanalist inzetten — als flexibele schil, zonder vaste aanstelling');
+            aandachtspunten.push('Wij zien dat er momenteel nog geen regelanalist actief is binnen de organisatie. Een regelanalist is essentieel voor het vertalen van het omgevingsplan naar toepasbare regels in het Omgevingsloket. Zonder regelanalist is het risico groot dat vergunningchecks niet correct werken voor burgers en bedrijven.');
+            diensten.push('wij via ons ServiceTeam Regelanalisten direct een ervaren regelanalist kunnen inzetten, als flexibele schil zonder vaste aanstelling');
         }
     }
 
@@ -187,8 +189,8 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
         if (kpi3Val === 0) {
             goedePunten.push('alle VNG-aanbevolen topactiviteiten beschikbaar zijn in het Omgevingsloket');
         } else if (kpi3Val >= 4) {
-            aandachtspunten.push('In het Omgevingsloket ontbreken nog meerdere VNG-aanbevolen topactiviteiten voor vergunningchecks. Burgers en bedrijven kunnen hierdoor niet digitaal checken of zij een vergunning nodig hebben, wat leidt tot meer telefoontjes en baliebezoekers.');
-            diensten.push('AbelTalent en Tafelberg Advies kunnen gezamenlijk de ontbrekende vergunningchecks opstellen en implementeren');
+            aandachtspunten.push('In het Omgevingsloket ontbreken nog meerdere VNG-aanbevolen topactiviteiten voor vergunningchecks. Burgers en bedrijven kunnen hierdoor niet digitaal controleren of zij een vergunning nodig hebben.');
+            diensten.push('wij samen met onze partner Tafelberg Advies de ontbrekende vergunningchecks kunnen opstellen en implementeren');
         } else if (kpi3Val >= 2) {
             aandachtspunten.push('Er zijn al vergunningchecks beschikbaar in het Omgevingsloket, maar er ontbreken nog enkele VNG-aanbevolen topactiviteiten. Dit beperkt de digitale dienstverlening aan burgers.');
         } else if (kpi3Val === 1) {
@@ -202,8 +204,8 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
         if (kpi4Val === 0) {
             goedePunten.push('er een robuust omgevingsplan is gepubliceerd na de bruidsschat');
         } else if (kpi4Val >= 4) {
-            aandachtspunten.push('Het omgevingsplan bevindt zich nog in een vroeg stadium na de bruidsschatconversie. De deadline voor een volledig omgevingsplan is 2032, en de ervaring leert dat de vertaling naar toepasbare regels de meeste doorlooptijd vraagt.');
-            diensten.push('Tafelberg Advies kan ondersteunen bij de ontwikkeling van het omgevingsplan, en AbelTalent zorgt voor de vertaling naar toepasbare regels');
+            aandachtspunten.push('Het omgevingsplan bevindt zich nog in een vroeg stadium na de bruidsschatconversie. De deadline voor een volledig omgevingsplan is 2032, en onze ervaring leert dat de vertaling naar toepasbare regels de meeste doorlooptijd vraagt.');
+            diensten.push('onze partner Tafelberg Advies kan ondersteunen bij het omgevingsplan, en wij zorgen voor de vertaling naar toepasbare regels');
         } else if (kpi4Val >= 2) {
             aandachtspunten.push('Het omgevingsplan is in ontwikkeling. Het is belangrijk om parallel aan de planantwikkeling al na te denken over de vertaling naar toepasbare regels, om vertraging te voorkomen.');
         } else if (kpi4Val === 1) {
@@ -214,11 +216,11 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
     // --- Goede punten samenvatten ---
     if (goedePunten.length > 0) {
         if (goedePunten.length === 1) {
-            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Het is goed om te zien dat ') + goedePunten[0] + '.');
+            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Positief valt op dat ') + goedePunten[0] + '.');
         } else {
             const copy = [...goedePunten];
             const laatste = copy.pop();
-            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Het is goed om te zien dat ') + copy.join(', ') + ' en ' + laatste + '. Complimenten daarvoor.');
+            paragraphs.push((isInformeel ? 'Positief is dat ' : 'Positief valt op dat ') + copy.join(', ') + ' en ' + laatste + '. Complimenten daarvoor.');
         }
     }
 
@@ -228,10 +230,10 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
     // --- Diensten samenvatten ---
     if (diensten.length > 0) {
         let dienstenParagraaf = isUrgent
-            ? 'Gezien de tijdsdruk willen wij u erop wijzen dat '
+            ? 'Gezien de urgentie wil ik u laten weten dat '
             : isInformeel
-                ? 'Mocht je hier hulp bij kunnen gebruiken: '
-                : 'Wij kunnen u hierbij concreet ondersteunen. ';
+                ? 'Mocht je hier hulp bij willen: '
+                : 'Graag laat ik u weten dat ';
 
         if (diensten.length === 1) {
             dienstenParagraaf += diensten[0] + '.';
