@@ -20,6 +20,9 @@ function App() {
   const [sheetContent, setSheetContent] = useState(null);
   const [contentStatus, setContentStatus] = useState('loading');
   const [notes, setNotes] = useState([]);
+  const [emailLog, setEmailLog] = useState([]);
+  const [gemeenteStatus, setGemeenteStatus] = useState('');
+  const [gemeenteFase, setGemeenteFase] = useState('');
   const [noteForm, setNoteForm] = useState({ type: 'Status Update', notitie: '' });
   const [noteSaving, setNoteSaving] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -97,9 +100,12 @@ function App() {
         kpi4: data.omgevingsplanScore || '',
       });
     }
-    // Load notes for this gemeente
-    const gemeenteNotes = await fetchNotes(name);
-    setNotes(gemeenteNotes);
+    // Load notes + email log for this gemeente
+    const notesData = await fetchNotes(name);
+    setNotes(notesData.notes);
+    setEmailLog(notesData.emailLog);
+    setGemeenteStatus(notesData.status);
+    setGemeenteFase(notesData.fase);
   };
 
   const handleAddNote = async () => {
@@ -110,8 +116,9 @@ function App() {
     setShowNoteForm(false);
     // Refresh notes after a short delay (Google Sheets needs time to process)
     setTimeout(async () => {
-      const updated = await fetchNotes(selectedGemeente);
-      setNotes(updated);
+      const data = await fetchNotes(selectedGemeente);
+      setNotes(data.notes);
+      setEmailLog(data.emailLog);
       setNoteSaving(false);
     }, 2000);
   };
@@ -358,7 +365,15 @@ function App() {
             {selectedGemeente && (
               <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-lg font-bold text-slate-800">📝 Notities — {selectedGemeente}</h2>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">📝 Notities — {selectedGemeente}</h2>
+                    {(gemeenteStatus || gemeenteFase) && (
+                      <div className="flex gap-2 mt-1">
+                        {gemeenteStatus && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">Status: {gemeenteStatus}</span>}
+                        {gemeenteFase && <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">Fase: {gemeenteFase}</span>}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => setShowNoteForm(!showNoteForm)} className="text-sm font-medium px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all">
                     {showNoteForm ? '✕ Annuleer' : '+ Notitie'}
                   </button>
@@ -392,17 +407,28 @@ function App() {
                   ) : notes.map((note, i) => (
                     <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                       <div className="flex justify-between items-start">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${note.type === 'HubSpot' ? 'bg-orange-100 text-orange-700' :
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${note.type === 'HubSpot' || note.type === 'HubSpot Import' ? 'bg-orange-100 text-orange-700' :
                           note.type === 'Contact' ? 'bg-blue-100 text-blue-700' :
                             note.type === 'Afspraak' ? 'bg-green-100 text-green-700' :
                               'bg-slate-200 text-slate-600'
                           }`}>{note.type}</span>
                         <span className="text-[10px] text-slate-400">{note.datum} · {note.auteur}</span>
                       </div>
-                      <p className="text-sm text-slate-700 mt-1.5">{note.notitie}</p>
+                      <p className="text-sm text-slate-700 mt-1.5 whitespace-pre-line">{note.notitie}</p>
                     </div>
                   ))}
                 </div>
+
+                {emailLog.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200">
+                    <h3 className="text-xs font-semibold text-blue-600 mb-2 flex items-center gap-1">📨 Email Geschiedenis</h3>
+                    <div className="space-y-1">
+                      {emailLog.map((entry, i) => (
+                        <p key={i} className="text-[11px] text-slate-500 bg-blue-50 px-2 py-1 rounded">{entry}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -118,11 +118,11 @@ export async function fetchContent() {
  * Fetch notes for a specific gemeente
  */
 export async function fetchNotes(gemeenteNaam) {
-    if (!gemeenteNaam) return [];
+    if (!gemeenteNaam) return { notes: [], emailLog: [], status: '', fase: '' };
 
     // Use cache if fresh
     if (notesCache && notesCache.gemeente === gemeenteNaam && (Date.now() - notesCacheTimestamp < NOTES_CACHE_TTL)) {
-        return notesCache.notes;
+        return notesCache.data;
     }
 
     try {
@@ -130,23 +130,37 @@ export async function fetchNotes(gemeenteNaam) {
         const text = await res.text();
         const rows = parseGoogleJson(text);
 
-        // Filter notes for this gemeente
-        const notes = rows
-            .filter(row => (row['Gemeente'] || '').toLowerCase() === gemeenteNaam.toLowerCase())
+        // Find rows for this gemeente (case-insensitive match)
+        const gemRows = rows.filter(row => (row['Gemeente'] || '').toLowerCase() === gemeenteNaam.toLowerCase());
+
+        // Build notes from Notitie column (column D)
+        const notes = gemRows
+            .filter(row => row['Notitie'] && row['Notitie'].trim())
             .map(row => ({
                 datum: row['Datum'] || '',
                 type: row['Type'] || '',
                 notitie: row['Notitie'] || '',
                 auteur: row['Auteur'] || '',
-            }))
-            .reverse(); // newest first
+            }));
 
-        notesCache = { gemeente: gemeenteNaam, notes };
+        // Build email log from Email Log column (column H)
+        const emailLog = gemRows
+            .filter(row => row['Email Log'] && row['Email Log'].trim())
+            .map(row => row['Email Log'])
+            .flatMap(log => log.split('\n').filter(l => l.trim()));
+
+        // Get status and fase from first matching row
+        const firstRow = gemRows[0] || {};
+        const status = firstRow['Status'] || '';
+        const fase = firstRow['Fase'] || '';
+
+        const data = { notes, emailLog, status, fase };
+        notesCache = { gemeente: gemeenteNaam, data };
         notesCacheTimestamp = Date.now();
-        return notes;
+        return data;
     } catch (err) {
         console.warn('Failed to fetch notes:', err);
-        return [];
+        return { notes: [], emailLog: [], status: '', fase: '' };
     }
 }
 
