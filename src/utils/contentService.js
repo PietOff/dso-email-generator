@@ -1,21 +1,21 @@
 /**
- * Content Service — Fetches editable content from Google Sheets
+ * Content Service — Fetches editable content from Google Sheets + writes notes
  * 
  * Sheet ID: 1FWC_JHiy_fpPKEw7_dPNfpYOIrJBkCTIyBKRCWqd6cs
- * Tabs: Algemeen, Score Teksten, Functie Teksten, CTAs
+ * Tabs: Algemeen, Score Teksten, Functie Teksten, CTAs, Gemeente Notities
  * 
- * Uses the Google Sheets published JSON feed (no API key needed).
- * Falls back to hardcoded defaults if fetch fails.
+ * Web App URL for writing notes:
+ * https://script.google.com/macros/s/AKfycbz7FsQQHxWXpV5bf-yZp1VnvyX8VjFT7cVyRdKQ94khIyvcj0ugukKzK8BnV1s0tPo/exec
  */
 
 const SHEET_ID = '1FWC_JHiy_fpPKEw7_dPNfpYOIrJBkCTIyBKRCWqd6cs';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7FsQQHxWXpV5bf-yZp1VnvyX8VjFT7cVyRdKQ94khIyvcj0ugukKzK8BnV1s0tPo/exec';
 
 function sheetUrl(sheetName) {
     return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
 }
 
 function parseGoogleJson(text) {
-    // Google wraps the JSON in a callback: google.visualization.Query.setResponse({...})
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\)/);
     if (!match) throw new Error('Invalid Google Sheets response');
     const data = JSON.parse(match[1]);
@@ -24,20 +24,24 @@ function parseGoogleJson(text) {
     const rows = (data.table.rows || []).map(row => {
         const obj = {};
         row.c.forEach((cell, i) => {
-            obj[headers[i]] = cell ? (cell.v || '') : '';
+            obj[headers[i]] = cell ? (cell.v != null ? String(cell.v) : '') : '';
         });
         return obj;
     });
     return rows;
 }
 
-// Cache to avoid fetching on every email generation
+// Cache for content (5 min)
 let contentCache = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
+
+// Separate cache for notes (1 min, refreshed more often)
+let notesCache = null;
+let notesCacheTimestamp = 0;
+const NOTES_CACHE_TTL = 60 * 1000;
 
 export async function fetchContent() {
-    // Return cache if fresh
     if (contentCache && (Date.now() - cacheTimestamp < CACHE_TTL)) {
         return contentCache;
     }
@@ -55,7 +59,6 @@ export async function fetchContent() {
         const functieRows = parseGoogleJson(functieRes);
         const ctaRows = parseGoogleJson(ctaRes);
 
-        // Parse Algemeen into key-value map
         const algemeen = {};
         algemeenRows.forEach(row => {
             const veld = row['Veld'] || row['veld'] || '';
@@ -63,7 +66,6 @@ export async function fetchContent() {
             if (veld) algemeen[veld] = waarde;
         });
 
-        // Parse Score Teksten into structured lookup
         const scoreTeksten = {};
         scoreRows.forEach(row => {
             const kpi = row['kpi'] || '';
@@ -79,7 +81,6 @@ export async function fetchContent() {
             }
         });
 
-        // Parse Functie Teksten
         const functieTeksten = {};
         functieRows.forEach(row => {
             const keyword = row['functie_keyword'] || '';
@@ -92,7 +93,6 @@ export async function fetchContent() {
             }
         });
 
-        // Parse CTAs
         const ctas = {};
         ctaRows.forEach(row => {
             const doel = row['doel'] || '';
@@ -109,12 +109,74 @@ export async function fetchContent() {
         cacheTimestamp = Date.now();
         return contentCache;
     } catch (err) {
-        console.warn('Failed to fetch content from Google Sheets, using fallback:', err);
-        return null; // Will use hardcoded fallback
+        console.warn('Failed to fetch content from Google Sheets:', err);
+        return null;
+    }
+}
+
+/**
+ * Fetch notes for a specific gemeente
+ */
+export async function fetchNotes(gemeenteNaam) {
+    if (!gemeenteNaam) return [];
+
+    // Use cache if fresh
+    if (notesCache && notesCache.gemeente === gemeenteNaam && (Date.now() - notesCacheTimestamp < NOTES_CACHE_TTL)) {
+        return notesCache.notes;
+    }
+
+    try {
+        const res = await fetch(sheetUrl('Gemeente Notities'));
+        const text = await res.text();
+        const rows = parseGoogleJson(text);
+
+        // Filter notes for this gemeente
+        const notes = rows
+            .filter(row => (row['Gemeente'] || '').toLowerCase() === gemeenteNaam.toLowerCase())
+            .map(row => ({
+                datum: row['Datum'] || '',
+                type: row['Type'] || '',
+                notitie: row['Notitie'] || '',
+                auteur: row['Auteur'] || '',
+            }))
+            .reverse(); // newest first
+
+        notesCache = { gemeente: gemeenteNaam, notes };
+        notesCacheTimestamp = Date.now();
+        return notes;
+    } catch (err) {
+        console.warn('Failed to fetch notes:', err);
+        return [];
+    }
+}
+
+/**
+ * Add a note for a gemeente via the Apps Script web app
+ */
+export async function addNote(gemeente, type, notitie, auteur) {
+    const datum = new Date().toISOString().split('T')[0];
+
+    try {
+        await fetch(WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Apps Script requires no-cors for cross-origin
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gemeente, datum, type, notitie, auteur }),
+        });
+
+        // Clear notes cache to force refresh
+        notesCache = null;
+        notesCacheTimestamp = 0;
+        return true;
+    } catch (err) {
+        console.error('Failed to add note:', err);
+        return false;
     }
 }
 
 export function clearContentCache() {
     contentCache = null;
     cacheTimestamp = 0;
+    notesCache = null;
+    notesCacheTimestamp = 0;
 }

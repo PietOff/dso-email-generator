@@ -94,9 +94,12 @@ export function generateEmail(baseStory, figures, options, selectedData, selecte
     const aandachtspunten = [];
     const diensten = [];
 
+    // Convert regelanalist ja/nee to numeric score
+    const kpi2Numeric = kpi2 === 'ja' ? '0' : kpi2 === 'nee' ? '5' : kpi2;
+
     const kpiMapping = [
         { key: 'bruidsschat', value: kpi1 },
-        { key: 'regelanalist', value: kpi2 },
+        { key: 'regelanalist', value: kpi2Numeric },
         { key: 'olo', value: kpi3 },
         { key: 'omgevingsplan', value: kpi4 },
     ];

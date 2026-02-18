@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote } from './utils/contentService';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
 function App() {
@@ -18,7 +18,11 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [showBaseStory, setShowBaseStory] = useState(false);
   const [sheetContent, setSheetContent] = useState(null);
-  const [contentStatus, setContentStatus] = useState('loading'); // loading, loaded, error
+  const [contentStatus, setContentStatus] = useState('loading');
+  const [notes, setNotes] = useState([]);
+  const [noteForm, setNoteForm] = useState({ type: 'Status Update', notitie: '' });
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [showNoteForm, setShowNoteForm] = useState(false);
 
   const gemeenteNames = useMemo(() => getAllGemeenteNames(), []);
 
@@ -64,9 +68,10 @@ function App() {
 
   const scoreSummary = useMemo(() => {
     if (!selectedData) return null;
+    const kpi2Val = figures.kpi2 === 'nee' ? 5 : figures.kpi2 === 'ja' ? 0 : (parseInt(figures.kpi2) || 0);
     const scores = [
       { label: 'Bruidsschat', value: parseInt(figures.kpi1) || 0 },
-      { label: 'Regelanalist', value: parseInt(figures.kpi2) || 0 },
+      { label: 'Regelanalist', value: kpi2Val },
       { label: 'OLO', value: parseInt(figures.kpi3) || 0 },
       { label: 'Omgevingsplan', value: parseInt(figures.kpi4) || 0 },
     ];
@@ -76,19 +81,39 @@ function App() {
     return { opportunities, warnings, good, total: parseInt(selectedData.totaleScore) || 0 };
   }, [selectedData, figures]);
 
-  const handleSelectGemeente = (name) => {
+  const handleSelectGemeente = async (name) => {
     setSelectedGemeente(name);
     setSearchQuery(name);
     setSelectedContact(null);
     const data = gemeenteData.find(g => g.bestuursorgaan === name);
     if (data) {
+      // Convert regelanalist score to ja/nee
+      const regelScore = data.regelanalistScore;
+      const regelJaNee = regelScore === '0' || regelScore === 0 ? 'ja' : 'nee';
       setFigures({
         kpi1: data.dierlijkeMestScore || '',
-        kpi2: data.regelanalistScore || '',
+        kpi2: regelJaNee,
         kpi3: data.scoreOLO || '',
         kpi4: data.omgevingsplanScore || '',
       });
     }
+    // Load notes for this gemeente
+    const gemeenteNotes = await fetchNotes(name);
+    setNotes(gemeenteNotes);
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedGemeente || !noteForm.notitie.trim()) return;
+    setNoteSaving(true);
+    await addNote(selectedGemeente, noteForm.type, noteForm.notitie, options.afzender || 'Team');
+    setNoteForm({ type: 'Status Update', notitie: '' });
+    setShowNoteForm(false);
+    // Refresh notes after a short delay (Google Sheets needs time to process)
+    setTimeout(async () => {
+      const updated = await fetchNotes(selectedGemeente);
+      setNotes(updated);
+      setNoteSaving(false);
+    }, 2000);
   };
 
   const handleFigureChange = (e) => {
@@ -201,7 +226,6 @@ function App() {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: 'Bruidsschat / Dierlijke Mest', name: 'kpi1', max: 5, hint: '5=niet aangepast, 0=aangepast' },
-                  { label: 'Regelanalist', name: 'kpi2', max: 5, hint: '5=geen regelanalist, 0=wel' },
                   { label: 'OLO Activiteiten', name: 'kpi3', max: 5, hint: '5=niets gedaan, 0=alles gedaan' },
                   { label: 'Omgevingsplan', name: 'kpi4', max: 5, hint: '5=geen plan, 0=robuust plan' }
                 ].map((field) => (
@@ -222,6 +246,30 @@ function App() {
                     )}
                   </div>
                 ))}
+                <div className="relative">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Regelanalist aanwezig?</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setFigures({ ...figures, kpi2: 'ja' })}
+                      className={`flex-1 p-2.5 rounded-xl border text-sm font-medium transition-all ${figures.kpi2 === 'ja'
+                          ? 'bg-green-100 border-green-300 text-green-700 ring-1 ring-green-300'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                    >
+                      ✅ Ja
+                    </button>
+                    <button
+                      onClick={() => setFigures({ ...figures, kpi2: 'nee' })}
+                      className={`flex-1 p-2.5 rounded-xl border text-sm font-medium transition-all ${figures.kpi2 === 'nee'
+                          ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-300'
+                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                    >
+                      ❌ Nee
+                    </button>
+                  </div>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">Is er een regelanalist actief?</span>
+                </div>
               </div>
             </div>
 
@@ -290,6 +338,57 @@ function App() {
                       </div>
                       {selectedContact && selectedContact.naam === contact.naam && <span className="text-xs text-blue-600">✓</span>}
                     </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedGemeente && (
+              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-lg font-bold text-slate-800">📝 Notities — {selectedGemeente}</h2>
+                  <button onClick={() => setShowNoteForm(!showNoteForm)} className="text-sm font-medium px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all">
+                    {showNoteForm ? '✕ Annuleer' : '+ Notitie'}
+                  </button>
+                </div>
+
+                {showNoteForm && (
+                  <div className="bg-purple-50 rounded-xl p-4 mb-3 border border-purple-100 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
+                      <select value={noteForm.type} onChange={(e) => setNoteForm({ ...noteForm, type: e.target.value })} className="w-full p-2 rounded-lg border border-slate-200 text-sm bg-white">
+                        <option value="Status Update">Statusupdate</option>
+                        <option value="Contact">Contact gehad</option>
+                        <option value="HubSpot">HubSpot notitie</option>
+                        <option value="Afspraak">Afspraak</option>
+                        <option value="Intern">Interne notitie</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Notitie</label>
+                      <textarea value={noteForm.notitie} onChange={(e) => setNoteForm({ ...noteForm, notitie: e.target.value })} placeholder="Schrijf een aantekening..." className="w-full h-20 p-2.5 rounded-lg border border-slate-200 text-sm resize-none" />
+                    </div>
+                    <button onClick={handleAddNote} disabled={noteSaving || !noteForm.notitie.trim()} className={`w-full py-2 rounded-lg text-sm font-medium transition-all ${noteSaving ? 'bg-slate-200 text-slate-400' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
+                      {noteSaving ? '⏳ Opslaan...' : '💾 Opslaan in Google Sheet'}
+                    </button>
+                  </div>
+                )}
+
+                <div className="space-y-2 max-h-48 overflow-auto">
+                  {notes.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Nog geen notities voor deze gemeente</p>
+                  ) : notes.map((note, i) => (
+                    <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                      <div className="flex justify-between items-start">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${note.type === 'HubSpot' ? 'bg-orange-100 text-orange-700' :
+                            note.type === 'Contact' ? 'bg-blue-100 text-blue-700' :
+                              note.type === 'Afspraak' ? 'bg-green-100 text-green-700' :
+                                'bg-slate-200 text-slate-600'
+                          }`}>{note.type}</span>
+                        <span className="text-[10px] text-slate-400">{note.datum} · {note.auteur}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 mt-1.5">{note.notitie}</p>
+                    </div>
                   ))}
                 </div>
               </div>
