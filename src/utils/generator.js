@@ -2,7 +2,7 @@
  * DSO Email Generator — Score Interpretation & Domain Knowledge
  * 
  * COMPANIES:
- * - abelTalent: Capacity solutions & talent development for physical living environment.
+ * - AbelTalent: Capacity solutions & talent development for physical living environment.
  *   Based in Bunnik. Provides young professionals (traineeship), SIS8020 toolset, VIA software
  *   for MBA registration. Focuses on data, digitalization, and project-based support.
  * - Tafelberg Advies (partner): Expert in regelanalyse, toepasbare regels, STTR, omgevingsplan.
