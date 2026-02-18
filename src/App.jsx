@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated } from './utils/contentService';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
 function App() {
@@ -121,7 +121,19 @@ function App() {
   };
 
   const generate = () => {
-    setGeneratedOutput(generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent));
+    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent);
+    setGeneratedOutput(output);
+
+    // Auto-log to Google Sheet
+    if (selectedGemeente && output) {
+      logEmailGenerated(
+        selectedGemeente,
+        selectedContact?.naam || '',
+        selectedContact?.functie || '',
+        options.doel,
+        options.toon
+      );
+    }
   };
 
   const copyToClipboard = () => {
@@ -252,8 +264,8 @@ function App() {
                     <button
                       onClick={() => setFigures({ ...figures, kpi2: 'ja' })}
                       className={`flex-1 p-2.5 rounded-xl border text-sm font-medium transition-all ${figures.kpi2 === 'ja'
-                          ? 'bg-green-100 border-green-300 text-green-700 ring-1 ring-green-300'
-                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        ? 'bg-green-100 border-green-300 text-green-700 ring-1 ring-green-300'
+                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                         }`}
                     >
                       ✅ Ja
@@ -261,8 +273,8 @@ function App() {
                     <button
                       onClick={() => setFigures({ ...figures, kpi2: 'nee' })}
                       className={`flex-1 p-2.5 rounded-xl border text-sm font-medium transition-all ${figures.kpi2 === 'nee'
-                          ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-300'
-                          : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                        ? 'bg-red-100 border-red-300 text-red-700 ring-1 ring-red-300'
+                        : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                         }`}
                     >
                       ❌ Nee
@@ -381,9 +393,9 @@ function App() {
                     <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                       <div className="flex justify-between items-start">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${note.type === 'HubSpot' ? 'bg-orange-100 text-orange-700' :
-                            note.type === 'Contact' ? 'bg-blue-100 text-blue-700' :
-                              note.type === 'Afspraak' ? 'bg-green-100 text-green-700' :
-                                'bg-slate-200 text-slate-600'
+                          note.type === 'Contact' ? 'bg-blue-100 text-blue-700' :
+                            note.type === 'Afspraak' ? 'bg-green-100 text-green-700' :
+                              'bg-slate-200 text-slate-600'
                           }`}>{note.type}</span>
                         <span className="text-[10px] text-slate-400">{note.datum} · {note.auteur}</span>
                       </div>

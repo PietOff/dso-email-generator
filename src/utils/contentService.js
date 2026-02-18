@@ -174,6 +174,48 @@ export async function addNote(gemeente, type, notitie, auteur) {
     }
 }
 
+/**
+ * Auto-log an email generation event to the Sheet
+ * Called automatically when user clicks "Genereer Email"
+ */
+export async function logEmailGenerated(gemeente, contactNaam, contactFunctie, doel, toon) {
+    if (!gemeente) return;
+
+    const datum = new Date().toISOString().split('T')[0];
+    const contactInfo = contactNaam
+        ? `${contactNaam}${contactFunctie ? ' (' + contactFunctie + ')' : ''}`
+        : 'Algemeen (geen specifiek contact)';
+
+    const doelLabels = {
+        'eerste-contact': 'Eerste contact',
+        'follow-up': 'Follow-up',
+        'quickscan': 'Quick Scan aanbod',
+        'workshop': 'Workshop uitnodiging',
+    };
+
+    const notitie = `Email gegenereerd: ${doelLabels[doel] || doel} (${toon}) → ${contactInfo}`;
+
+    try {
+        await fetch(WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gemeente,
+                datum,
+                type: 'Mail verstuurd',
+                notitie,
+                auteur: 'App',
+            }),
+        });
+        // Clear notes cache so it refreshes on next fetch
+        notesCache = null;
+        notesCacheTimestamp = 0;
+    } catch (err) {
+        console.warn('Failed to log email generation:', err);
+    }
+}
+
 export function clearContentCache() {
     contentCache = null;
     cacheTimestamp = 0;
