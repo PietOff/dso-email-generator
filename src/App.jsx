@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
 import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated } from './utils/contentService';
+import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
 function App() {
@@ -13,7 +14,9 @@ function App() {
     afzender: '',
   });
   const [selectedContact, setSelectedContact] = useState(null);
-  const [generatedOutput, setGeneratedOutput] = useState("");
+  const [generatedEmails, setGeneratedEmails] = useState({ email1: '', email2: '', email3: '' });
+  const [activeTab, setActiveTab] = useState('email1');
+  const [smartContext, setSmartContext] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [showBaseStory, setShowBaseStory] = useState(false);
@@ -52,10 +55,38 @@ function App() {
     loadContent();
   };
 
+
   // Load content from Google Sheets on startup
   useEffect(() => {
     loadContent();
   }, []);
+
+  // Smart Context Logic: Detect latest contact from notes
+  useEffect(() => {
+    if (notes && notes.length > 0) {
+      const dateRegex = /(\d{2}-\d{2}-\d{4})/;
+      // Filter for notes that look like user entries
+      const relevantNotes = notes.filter(n => dateRegex.test(n.notitie) || n.notitie.includes('['));
+
+      if (relevantNotes.length > 0) {
+        const lastNote = relevantNotes[0];
+        const dateMatch = lastNote.notitie.match(dateRegex);
+        const year = dateMatch ? dateMatch[0].split('-')[2] : '';
+        const authorMatch = lastNote.notitie.match(/\[([A-Z]+)/);
+        const author = authorMatch ? authorMatch[1] : 'een collega';
+
+        if (year) {
+          setSmartContext(`Volgens onze notities hebben we in ${year} voor het laatst contact gehad (${author}).`);
+        } else {
+          setSmartContext(`Ik zag dat er eerder contact is geweest met ${author}.`);
+        }
+      } else {
+        setSmartContext('');
+      }
+    } else {
+      setSmartContext('');
+    }
+  }, [notes]);
 
   const filteredGemeenten = useMemo(() => {
     if (!searchQuery) return gemeenteNames.slice(0, 20);
@@ -88,6 +119,7 @@ function App() {
     setSelectedGemeente(name);
     setSearchQuery(name);
     setSelectedContact(null);
+    setGeneratedEmails({ email1: '', email2: '', email3: '' });
     const data = gemeenteData.find(g => g.bestuursorgaan === name);
     if (data) {
       // Convert regelanalist score to ja/nee
@@ -128,11 +160,12 @@ function App() {
   };
 
   const generate = () => {
-    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent);
-    setGeneratedOutput(output);
+    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext);
+    setGeneratedEmails(output);
+    setActiveTab('email1');
 
-    // Auto-log to Google Sheet
-    if (selectedGemeente && output) {
+    // Auto-log to Google Sheet (only 1st email)
+    if (selectedGemeente && output.email1) {
       logEmailGenerated(
         selectedGemeente,
         selectedContact?.naam || '',
@@ -144,10 +177,14 @@ function App() {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedOutput);
+    navigator.clipboard.writeText(generatedEmails[activeTab]);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const emailScore = useMemo(() => {
+    return calculateScore('', generatedEmails[activeTab]);
+  }, [generatedEmails, activeTab]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8 font-['Inter',sans-serif] text-slate-800">
@@ -204,6 +241,21 @@ function App() {
                   </div>
                 )}
               </div>
+
+              {/* Smart Context Input */}
+              {selectedGemeente && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    💡 Smart Context (Auto-detect)
+                  </label>
+                  <textarea
+                    value={smartContext}
+                    onChange={(e) => setSmartContext(e.target.value)}
+                    placeholder="Hier verschijnt automatisch context uit de historie..."
+                    className="w-full p-2.5 rounded-xl border border-blue-100 bg-blue-50/50 text-sm h-16 resize-none focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
               {scoreSummary && (
                 <div className="mt-4 space-y-2">
@@ -435,15 +487,54 @@ function App() {
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60 flex flex-col" style={{ minHeight: '400px' }}>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-bold text-slate-800">✉️ Gegenereerde Email</h2>
-                {generatedOutput && (
+                <div className="flex gap-2">
+                  {['email1', 'email2', 'email3'].map((tab, i) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`text-xs px-3 py-1.5 rounded-full transition-all font-medium ${activeTab === tab
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                      {i + 1}. {tab === 'email1' ? 'Opening' : tab === 'email2' ? 'Follow-up' : 'Waarde'}
+                    </button>
+                  ))}
+                </div>
+                {generatedEmails[activeTab] && (
                   <button onClick={copyToClipboard} className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
-                    {copied ? '✓ Gekopieerd!' : '📋 Kopieer'}
+                    {copied ? '✓' : '📋'}
                   </button>
                 )}
               </div>
-              <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-200 overflow-auto text-sm leading-relaxed whitespace-pre-wrap">
-                {generatedOutput || <span className="text-slate-400 italic">Selecteer een gemeente, vul de scores in en klik op "Genereer Email"...</span>}
+
+              <div className="flex-1 bg-slate-50 rounded-xl p-4 border border-slate-200 overflow-auto text-sm leading-relaxed whitespace-pre-wrap mb-4 font-mono">
+                {generatedEmails[activeTab] || <span className="text-slate-400 italic">Selecteer een gemeente, vul de scores in en klik op "Genereer Campagne"...</span>}
               </div>
+
+              {/* EMAIL HEALTH SCORE */}
+              {generatedEmails[activeTab] && (
+                <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm transform transition-all animate-in fade-in slide-in-from-bottom-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Email Gezondheid</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-400">Score:</span>
+                      <span className={`text-lg font-bold ${emailScore.score >= 80 ? 'text-green-600' : emailScore.score >= 50 ? 'text-orange-500' : 'text-red-500'}`}>
+                        {emailScore.score}/100
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {emailScore.feedback.map((f, i) => (
+                      <span key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border ${f.type === 'warning' ? 'bg-red-50 text-red-700 border-red-100' :
+                          f.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' :
+                            'bg-blue-50 text-blue-700 border-blue-100'
+                        }`}>
+                        {f.type === 'warning' ? '⚠️' : f.type === 'success' ? '✅' : 'ℹ️'} {f.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
