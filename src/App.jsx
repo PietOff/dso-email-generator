@@ -186,6 +186,8 @@ function App() {
     return calculateScore('', generatedEmails[activeTab]);
   }, [generatedEmails, activeTab]);
 
+  const [activeView, setActiveView] = useState('generator');
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8 font-['Inter',sans-serif] text-slate-800">
       <div className="max-w-7xl mx-auto">
@@ -195,7 +197,25 @@ function App() {
             DSO Email Generator
           </h1>
           <p className="text-slate-500 mt-2">AbelTalent & Tafelberg Advies — Gepersonaliseerde emails op basis van DSO-scores</p>
-          <div className="flex items-center justify-center gap-3 mt-2">
+          <div className="flex items-center justify-center gap-3 mt-4">
+            {/* Main Navigation Tabs */}
+            <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-200 inline-flex">
+              <button
+                onClick={() => setActiveView('generator')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'generator' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                ✉️ Email Generator
+              </button>
+              <button
+                onClick={() => setActiveView('monitor')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'monitor' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                📊 DSO Monitor
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 mt-4">
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${contentStatus === 'loaded' ? 'bg-green-100 text-green-700' :
               contentStatus === 'loading' ? 'bg-blue-100 text-blue-700' :
                 'bg-orange-100 text-orange-700'
@@ -213,7 +233,22 @@ function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* DSO Monitor View (Power BI Embed) */}
+        <div className={activeView === 'monitor' ? 'block' : 'hidden'}>
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden" style={{ height: '80vh' }}>
+            <iframe
+              title="DSO Kruismatrix"
+              width="100%"
+              height="100%"
+              src="https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9"
+              frameBorder="0"
+              allowFullScreen={true}
+            ></iframe>
+          </div>
+        </div>
+
+        {/* Email Generator View */}
+        <div className={`grid grid-cols-1 lg:grid-cols-5 gap-6 ${activeView === 'generator' ? 'block' : 'hidden'}`}>
 
           <div className="lg:col-span-3 space-y-6">
 
