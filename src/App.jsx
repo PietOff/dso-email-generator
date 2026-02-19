@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
@@ -207,6 +207,9 @@ function App() {
             <button onClick={refreshContent} className="text-xs text-blue-500 hover:text-blue-700 underline" title="Ververs content vanuit Google Sheet">
               🔄 Ververs
             </button>
+            <a href={getGoogleSheetUrl()} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:text-blue-700 underline flex items-center gap-1" title="Open Google Sheet">
+              📊 Open Sheet
+            </a>
           </div>
         </div>
 
@@ -526,8 +529,8 @@ function App() {
                   <div className="flex flex-wrap gap-2">
                     {emailScore.feedback.map((f, i) => (
                       <span key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium border ${f.type === 'warning' ? 'bg-red-50 text-red-700 border-red-100' :
-                          f.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' :
-                            'bg-blue-50 text-blue-700 border-blue-100'
+                        f.type === 'success' ? 'bg-green-50 text-green-700 border-green-100' :
+                          'bg-blue-50 text-blue-700 border-blue-100'
                         }`}>
                         {f.type === 'warning' ? '⚠️' : f.type === 'success' ? '✅' : 'ℹ️'} {f.text}
                       </span>
