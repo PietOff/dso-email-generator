@@ -23,7 +23,26 @@ function App() {
   const [sheetContent, setSheetContent] = useState(null);
   const [monitorData, setMonitorData] = useState(null);
   const [contentStatus, setContentStatus] = useState('loading');
+  const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/trigger-sync', { method: 'POST' });
+      if (res.ok) {
+        alert('✅ Sync gestart! Dit duurt ongeveer 1-2 minuten. Ververs de pagina over een paar minuten om de nieuwe data te zien.');
+      } else {
+        const err = await res.json();
+        alert('❌ Fout bij starten sync: ' + (err.error || 'Onbekende fout'));
+      }
+    } catch (e) {
+      alert('❌ Netwerkfout bij starten sync');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const [emailLog, setEmailLog] = useState([]);
   const [gemeenteStatus, setGemeenteStatus] = useState('');
   const [gemeenteFase, setGemeenteFase] = useState('');
@@ -244,8 +263,17 @@ function App() {
               }`}>
               {contentStatus === 'loaded' ? '✓ Google Sheet verbonden' :
                 contentStatus === 'loading' ? '⏳ Content laden...' :
+
                   '⚠️ Fallback modus (offline)'}
             </span>
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className={`text-xs px-2 py-1 rounded border transition-colors ${syncing ? 'bg-slate-100 text-slate-400 border-slate-200' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}
+              title="Start Power BI synchronisatie (via GitHub Actions)"
+            >
+              {syncing ? '⏳ Starten...' : '⚡ Sync Nu'}
+            </button>
             <button onClick={refreshContent} className="text-xs text-blue-500 hover:text-blue-700 underline" title="Ververs content vanuit Google Sheet">
               🔄 Ververs
             </button>
@@ -600,7 +628,7 @@ function App() {
 
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 

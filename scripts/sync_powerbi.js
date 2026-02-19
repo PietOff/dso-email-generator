@@ -1,11 +1,14 @@
 import puppeteer from 'puppeteer';
 
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz7FsQQHxWXpV5bf-yZp1VnvyX8VjFT7cVyRdKQ94khIyvcj0ugukKzK8BnV1s0tPo/exec'; // Value from src/utils/contentService.js
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxSBxwydzP5DZbpd4mI-LK3GPlMwVsTXpMOSnUWqtTXJdbFAMhnwOHubehOF_X67XE3/exec'; // Value from src/utils/contentService.js
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
 (async () => {
     console.log('🚀 Starting Power BI Sync...');
-    const browser = await puppeteer.launch({ headless: "new" });
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     const page = await browser.newPage();
 
     try {
@@ -14,7 +17,7 @@ const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMT
 
         // Wait for the report to render (mid-viewport is the container for visuals)
         try {
-            await page.waitForSelector('.mid-viewport', { timeout: 30000 });
+            await page.waitForSelector('.mid-viewport', { timeout: 60000 });
             console.log('✅ Dashboard loaded.');
         } catch (e) {
             console.error('❌ Dashboard did not load in time.');
