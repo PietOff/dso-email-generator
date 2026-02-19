@@ -201,7 +201,8 @@ function App() {
   };
 
   const generate = () => {
-    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext);
+    const enriched = monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null;
+    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
     setGeneratedEmails(output);
     setActiveTab('email1');
 
@@ -373,6 +374,24 @@ function App() {
                       <span className="text-xs text-green-600">{scoreSummary.good.map(s => s.label).join(', ')}</span>
                     </div>
                   )}
+
+                  {/* Enriched Power BI Data */}
+                  {monitorData && monitorData[selectedGemeente?.toLowerCase()] && (() => {
+                    const m = monitorData[selectedGemeente.toLowerCase()];
+                    return (
+                      <div className="mt-3 bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                        <span className="text-xs font-semibold text-indigo-700 block mb-1.5">📊 Power BI Monitor Data</span>
+                        <div className="grid grid-cols-2 gap-1.5 text-xs text-indigo-600">
+                          {m.regelingType && <span>📋 {m.regelingType}</span>}
+                          {m.behandeldienst && <span>🏢 {m.behandeldienst}</span>}
+                          {m.aantalRegels && <span>📐 {m.aantalRegels} regels</span>}
+                          {m.trSoftware && <span>💻 {m.trSoftware}</span>}
+                          {m.laatsteWijziging && <span>📅 Laatste wijziging: {m.laatsteWijziging}</span>}
+                          {m.lastUpdate && <span>🔄 Sync: {new Date(m.lastUpdate).toLocaleDateString('nl-NL')}</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

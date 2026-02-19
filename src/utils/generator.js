@@ -23,8 +23,10 @@
  * @param {object} selectedData - gemeente data
  * @param {object|null} selectedContact - optional contact person
  * @param {object|null} sheetContent - content from Google Sheet
+ * @param {string} smartContext - auto-detected context
+ * @param {object|null} monitorEnriched - enriched data from Power BI sync
  */
-export const generateEmail = (baseStory, figures, options, selectedData, selectedContact, content, smartContext = '') => {
+export const generateEmail = (baseStory, figures, options, selectedData, selectedContact, content, smartContext = '', monitorEnriched = null) => {
     if (!selectedData) return { email1: '', email2: '', email3: '' };
 
     const { algemeen = {}, scoreTeksten = {}, functieTeksten = {}, ctas = {} } = content || {};
@@ -155,6 +157,50 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         return paragraphs.join('\n\n');
     };
 
+    // --- Enriched Monitor Context (from Power BI) ---
+    const getEnrichedContext = () => {
+        if (!monitorEnriched) return '';
+        const parts = [];
+
+        // Regeling Type (e.g. "Omgevingsplan" vs "Voorbeschermingsregels")
+        if (monitorEnriched.regelingType) {
+            const type = monitorEnriched.regelingType;
+            if (type === 'Omgevingsplan') {
+                parts.push(isInformeel
+                    ? `Uit de Kruismatrix zien we dat jullie al een Omgevingsplan hebben gepubliceerd — goed bezig!`
+                    : `Uit de DSO Kruismatrix blijkt dat ${selectedData.bestuursorgaan} reeds een Omgevingsplan heeft gepubliceerd.`);
+            } else if (type === 'Voorbeschermingsregels' || type === 'Voorbereidingsbesluit') {
+                parts.push(isInformeel
+                    ? `We zien dat jullie nu nog met ${type} werken. Dat betekent dat er nog stappen te zetten zijn richting een volledig Omgevingsplan.`
+                    : `Uit de DSO Kruismatrix blijkt dat ${selectedData.bestuursorgaan} op dit moment werkt met ${type}. Dit betekent dat de transitie naar een definitief Omgevingsplan nog gaande is.`);
+            }
+        }
+
+        // Behandeldienst
+        if (monitorEnriched.behandeldienst) {
+            parts.push(isInformeel
+                ? `Jullie werken samen met ${monitorEnriched.behandeldienst} als behandeldienst — wij hebben daar goede ervaring mee.`
+                : `Wij zien dat ${monitorEnriched.behandeldienst} de behandeldienst is voor uw regio. Wij werken regelmatig samen met omgevingsdiensten en kunnen de afstemming hierin ondersteunen.`);
+        }
+
+        // Aantal Regels + Software
+        if (monitorEnriched.aantalRegels && parseInt(monitorEnriched.aantalRegels) > 0) {
+            const count = parseInt(monitorEnriched.aantalRegels);
+            const software = monitorEnriched.trSoftware ? ` (via ${monitorEnriched.trSoftware})` : '';
+            if (count < 20) {
+                parts.push(isInformeel
+                    ? `Met ${count} toepasbare regels${software} is er nog veel ruimte om het Omgevingsloket gebruiksvriendelijker te maken.`
+                    : `Met momenteel ${count} toepasbare regels${software} zien wij mogelijkheden om het digitale Omgevingsloket verder in te richten.`);
+            } else {
+                parts.push(isInformeel
+                    ? `Jullie hebben al ${count} toepasbare regels${software} — het onderhoud daarvan kan behoorlijk wat werk zijn.`
+                    : `Met ${count} toepasbare regels${software} heeft u al een substantieel pakket ingericht. Het beheer en onderhoud hiervan vraagt continue aandacht.`);
+            }
+        }
+
+        return parts.join('\n\n');
+    };
+
     // --- Role Logic ---
     const getRoleBlock = () => {
         if (!selectedContact || !selectedContact.functie) return "";
@@ -210,6 +256,7 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         }
 
         const kpiBlock = getKPIContext(); // Now string (paragraphs separated by \n\n)
+        const enrichedBlock = getEnrichedContext(); // Power BI enriched data
         const roleBlock = getRoleBlock();
         const cta = getCTA();
         const signature = getSignature();
@@ -218,7 +265,7 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         const extraInfo = algemeen.extra_alinea || '';
 
         // Filter empty parts and join
-        return [greeting, contextParagraph, roleBlock, kpiBlock, extraInfo, cta, signature]
+        return [greeting, contextParagraph, roleBlock, kpiBlock, enrichedBlock, extraInfo, cta, signature]
             .filter(p => p && p.trim() !== "")
             .join('\n\n');
     };
