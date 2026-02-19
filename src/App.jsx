@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
 import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData } from './utils/contentService';
+import { fetchPowerBIData } from './utils/powerbiService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
@@ -22,6 +23,8 @@ function App() {
   const [showBaseStory, setShowBaseStory] = useState(false);
   const [sheetContent, setSheetContent] = useState(null);
   const [monitorData, setMonitorData] = useState(null);
+  const [pbiData, setPbiData] = useState(null);
+  const [pbiLoading, setPbiLoading] = useState(false);
   const [contentStatus, setContentStatus] = useState('loading');
   const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
@@ -173,6 +176,17 @@ function App() {
 
     setFigures(newFigures);
 
+    // Fetch LIVE Power BI data for this gemeente
+    setPbiLoading(true);
+    fetchPowerBIData(name).then(data => {
+      setPbiData(data);
+      // Override kpi4 with live regelingType priority if available
+      if (data?.kpi4) {
+        setFigures(prev => ({ ...prev, kpi4: data.kpi4 }));
+      }
+      setPbiLoading(false);
+    }).catch(() => setPbiLoading(false));
+
     // Load notes + email log for this gemeente
     const notesData = await fetchNotes(name);
     setNotes(notesData.notes);
@@ -201,7 +215,7 @@ function App() {
   };
 
   const generate = () => {
-    const enriched = monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null;
+    const enriched = pbiData || (monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null);
     const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
     setGeneratedEmails(output);
     setActiveTab('email1');
@@ -376,22 +390,24 @@ function App() {
                   )}
 
                   {/* Enriched Power BI Data */}
-                  {monitorData && monitorData[selectedGemeente?.toLowerCase()] && (() => {
-                    const m = monitorData[selectedGemeente.toLowerCase()];
+                  {(pbiData || (monitorData && monitorData[selectedGemeente?.toLowerCase()])) && (() => {
+                    const m = pbiData || monitorData[selectedGemeente.toLowerCase()];
                     return (
                       <div className="mt-3 bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                        <span className="text-xs font-semibold text-indigo-700 block mb-1.5">📊 Power BI Monitor Data</span>
+                        <span className="text-xs font-semibold text-indigo-700 block mb-1.5">📊 Live Power BI Data</span>
                         <div className="grid grid-cols-2 gap-1.5 text-xs text-indigo-600">
                           {m.regelingType && <span>📋 {m.regelingType}</span>}
                           {m.behandeldienst && <span>🏢 {m.behandeldienst}</span>}
                           {m.aantalRegels && <span>📐 {m.aantalRegels} regels</span>}
                           {m.trSoftware && <span>💻 {m.trSoftware}</span>}
-                          {m.laatsteWijziging && <span>📅 Laatste wijziging: {m.laatsteWijziging}</span>}
-                          {m.lastUpdate && <span>🔄 Sync: {new Date(m.lastUpdate).toLocaleDateString('nl-NL')}</span>}
+                          {m.laatsteWijziging && <span>📅 Wijziging: {m.laatsteWijziging}</span>}
                         </div>
                       </div>
                     );
                   })()}
+                  {pbiLoading && (
+                    <div className="mt-2 text-xs text-indigo-400 animate-pulse">⏳ Power BI data laden...</div>
+                  )}
                 </div>
               )}
             </div>
