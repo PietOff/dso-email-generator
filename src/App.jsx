@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
@@ -21,6 +21,7 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [showBaseStory, setShowBaseStory] = useState(false);
   const [sheetContent, setSheetContent] = useState(null);
+  const [monitorData, setMonitorData] = useState(null);
   const [contentStatus, setContentStatus] = useState('loading');
   const [notes, setNotes] = useState([]);
   const [emailLog, setEmailLog] = useState([]);
@@ -35,9 +36,14 @@ function App() {
   const loadContent = async () => {
     setContentStatus('loading');
     try {
-      const content = await fetchContent();
+      const [content, monitor] = await Promise.all([
+        fetchContent(),
+        fetchMonitorData()
+      ]);
+
       if (content) {
         setSheetContent(content);
+        setMonitorData(monitor);
         setContentStatus('loaded');
         if (content.algemeen && content.algemeen.standaard_verhaal) {
           setBaseStory(content.algemeen.standaard_verhaal);
@@ -120,18 +126,34 @@ function App() {
     setSearchQuery(name);
     setSelectedContact(null);
     setGeneratedEmails({ email1: '', email2: '', email3: '' });
+
+    // Default data from local JSON
     const data = gemeenteData.find(g => g.bestuursorgaan === name);
+    let newFigures = { kpi1: '', kpi2: '', kpi3: '', kpi4: '' };
+
     if (data) {
-      // Convert regelanalist score to ja/nee
       const regelScore = data.regelanalistScore;
       const regelJaNee = regelScore === '0' || regelScore === 0 ? 'ja' : 'nee';
-      setFigures({
+      newFigures = {
         kpi1: data.dierlijkeMestScore || '',
         kpi2: regelJaNee,
         kpi3: data.scoreOLO || '',
         kpi4: data.omgevingsplanScore || '',
-      });
+      };
     }
+
+    // OVERRIDE with Monitor Data if available
+    if (monitorData && monitorData[name.toLowerCase()]) {
+      const m = monitorData[name.toLowerCase()];
+      console.log('Using Monitor Data for', name, m);
+      if (m.kpi1) newFigures.kpi1 = m.kpi1;
+      if (m.kpi2) newFigures.kpi2 = m.kpi2;
+      if (m.kpi3) newFigures.kpi3 = m.kpi3;
+      if (m.kpi4) newFigures.kpi4 = m.kpi4;
+    }
+
+    setFigures(newFigures);
+
     // Load notes + email log for this gemeente
     const notesData = await fetchNotes(name);
     setNotes(notesData.notes);

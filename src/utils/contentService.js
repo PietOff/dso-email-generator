@@ -168,6 +168,55 @@ export async function fetchNotes(gemeenteNaam) {
     }
 }
 
+// Cache for monitor data (10 min)
+let monitorCache = null;
+let monitorCacheTimestamp = 0;
+const MONITOR_CACHE_TTL = 10 * 60 * 1000;
+
+/**
+ * Fetch Monitor Data (Power BI Sync)
+ */
+export async function fetchMonitorData() {
+    if (monitorCache && (Date.now() - monitorCacheTimestamp < MONITOR_CACHE_TTL)) {
+        return monitorCache;
+    }
+
+    try {
+        const res = await fetch(sheetUrl('Monitor Data'));
+        const text = await res.text();
+        const rows = parseGoogleJson(text);
+
+        // Convert to look-up object by Gemeente (lowercase)
+        const data = {};
+        rows.forEach(row => {
+            const naam = row['Gemeente'] || '';
+            if (naam) {
+                // Determine if 'Ja'/'Nee' or number based on column
+                // KPI mappings:
+                // KPI1_Mest -> kpi1
+                // KPI2_Regelanalist -> kpi2 (Ja/Nee)
+                // KPI3_OLO -> kpi3
+                // KPI4_Omgevingsplan -> kpi4
+
+                data[naam.toLowerCase()] = {
+                    kpi1: row['KPI1_Mest'] || '',
+                    kpi2: row['KPI2_Regelanalist'] || '',
+                    kpi3: row['KPI3_OLO'] || '',
+                    kpi4: row['KPI4_Omgevingsplan'] || '',
+                    lastUpdate: row['Laatste Update'] || ''
+                };
+            }
+        });
+
+        monitorCache = data;
+        monitorCacheTimestamp = Date.now();
+        return data;
+    } catch (err) {
+        console.warn('Failed to fetch monitor data:', err);
+        return {};
+    }
+}
+
 /**
  * Add a note for a gemeente via the Apps Script web app
  */
