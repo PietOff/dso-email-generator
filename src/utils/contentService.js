@@ -191,18 +191,16 @@ export async function fetchMonitorData() {
         rows.forEach(row => {
             const naam = row['Gemeente'] || '';
             if (naam) {
-                // Determine if 'Ja'/'Nee' or number based on column
-                // KPI mappings:
-                // KPI1_Mest -> kpi1
-                // KPI2_Regelanalist -> kpi2 (Ja/Nee)
-                // KPI3_OLO -> kpi3
-                // KPI4_Omgevingsplan -> kpi4
-
                 data[naam.toLowerCase()] = {
                     kpi1: row['KPI1_Mest'] || '',
                     kpi2: row['KPI2_Regelanalist'] || '',
                     kpi3: row['KPI3_OLO'] || '',
                     kpi4: row['KPI4_Omgevingsplan'] || '',
+                    regelingType: row['Regeling Type'] || '',
+                    behandeldienst: row['Behandeldienst'] || '',
+                    aantalRegels: row['Aantal Regels'] || '',
+                    laatsteWijziging: row['Laatste Wijziging'] || '',
+                    trSoftware: row['TR Software'] || '',
                     lastUpdate: row['Laatste Update'] || ''
                 };
             }
