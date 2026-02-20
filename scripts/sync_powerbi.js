@@ -83,11 +83,22 @@ async function navigateToPage(page, pageName) {
 
 async function scrapeVisibleRows(page) {
     return page.evaluate(() => {
-        const rows = document.querySelectorAll('[role="row"]');
+        // Target rows that are actually inside table/matrix visuals, not just random canvas containers
+        const rowContainers = document.querySelectorAll('.visualContainer [role="row"], .table-visual [role="row"], .pivotTable [role="row"], .tablix .row, .tablixCanvas [role="row"]');
+
+        let targetRows;
+        if (rowContainers.length > 0) {
+            targetRows = rowContainers;
+        } else {
+            // Fallback: Just grab anything labeled as a row
+            targetRows = document.querySelectorAll('[role="row"]');
+        }
+
         const data = [];
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [role="rowheader"]');
-            if (cells.length === 0) return;
+        targetRows.forEach(row => {
+            const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [role="rowheader"], .cell');
+            if (cells.length < 3) return; // Ignore single-cell labels like "Gepubliceerd op"
+
             const rowData = Array.from(cells).map(c => (c.textContent || '').trim());
             // Only push if there's actual text content
             if (rowData.some(t => t.length > 0)) {
@@ -99,8 +110,14 @@ async function scrapeVisibleRows(page) {
 }
 
 async function scrapeAllRows(page) {
-    // Wait explicitly for the grid and actual gridcells (data rows) to appear
-    await page.waitForSelector('[role="gridcell"]', { timeout: 45000 }).catch(() => console.log('    ⚠️ Timed out waiting for data cells.'));
+    // Wait explicitly for a row that has multiple cells (an actual data table row)
+    await page.waitForFunction(() => {
+        const rows = document.querySelectorAll('[role="row"]');
+        for (const r of rows) {
+            if (r.querySelectorAll('[role="gridcell"], [role="columnheader"]').length >= 3) return true;
+        }
+        return false;
+    }, { timeout: 45000 }).catch(() => console.log('    ⚠️ Timed out waiting for multi-column data cells.'));
 
     // Power BI virtualizes tables — only ~25 rows visible at a time.
     // We scroll the table container to load all rows.
