@@ -112,9 +112,9 @@ async function scrapeVisibleRows(page) {
 async function scrapeAllRows(page) {
     // Wait explicitly for a row that has multiple cells (an actual data table row)
     await page.waitForFunction(() => {
-        const rows = document.querySelectorAll('[role="row"]');
-        for (const r of rows) {
-            if (r.querySelectorAll('[role="gridcell"], [role="columnheader"]').length >= 3) return true;
+        const rowContainers = document.querySelectorAll('.visualContainer [role="row"], .table-visual [role="row"], .pivotTable [role="row"], .tablix .row, .tablixCanvas [role="row"], [role="row"]');
+        for (const r of rowContainers) {
+            if (r.querySelectorAll('[role="gridcell"], [role="cell"], [role="columnheader"], .cell').length >= 3) return true;
         }
         return false;
     }, { timeout: 45000 }).catch(() => console.log('    ⚠️ Timed out waiting for multi-column data cells.'));
