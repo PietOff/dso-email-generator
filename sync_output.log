@@ -22,15 +22,6 @@
    [13] A2. Locaties in ALA (section: ReportSection241d22ad8ff7d6eeb8f0)
    [14] I1. Functionele  structuur  (section: ReportSectiond53227cdda7d9d6e904a)
    [15] S1. Samenwerkingen (section: ReportSection5a29e398cb7434e892a1)
-    🔍 DSR top-level keys: Version, MinorVersion, DS
-    🔍 DSR.DS length: 1
-    🔍 DSR has NO ValueDicts!
-    🔍 DS[0] keys: N, PH, IC, HAD
-    🔍 PH[0] keys: DM0
-    🔍 PH[0].DM0 length: 1
-    🔍 DM0[0] keys: S, M0
-    🔍 DM0[0] FULL: {"S":[{"N":"M0","T":1}],"M0":"Gepubliceerd op : 20-feb-2026 12:31:16"}
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
 📊 Initial page data: 0 rows from 1 queries
 
 📊 [R1] Scraping Regelingen...
@@ -39,20 +30,8 @@
     ✅ Matched page: "R1. Regelingen" (section: ReportSection4e0ecbf1bc40f8e03830)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
-    🔍 DSR top-level keys: Version, MinorVersion, DS
-    🔍 DSR.DS length: 1
-    🔍 DSR has NO ValueDicts!
-    🔍 DS[0] keys: N, PH, IC, RT, ValueDicts
-    🔍 DS[0].ValueDicts keys: D0, D1, D2, D3, D4, D5, D6, D7
-    🔍 PH[0] keys: DM0
-    🔍 PH[0].DM0 length: 500
-    🔍 DM0[0] keys: S, C, Ø
-    🔍 DM0[0] FULL: {"S":[{"N":"G0","T":1,"DN":"D0"},{"N":"G1","T":1,"DN":"D1"},{"N":"G2","T":1,"DN":"D2"},{"N":"G3","T":7},{"N":"G4","T":7},{"N":"G5","T":7},{"N":"G6","T":7},{"N":"G7","T":7},{"N":"G8","T":1,"DN":"D3"},{"N":"G9","T":1,"DN":"D4"},{"N":"G10","T":1,"DN":"D5"},{"N":"M0","T":4},{"N":"M1","T":1,"DN":"D6"},{"N":"M2","T":1,"DN":"D7"}],"C":[0,0,0,1771575844400,1771545600000,1771545600000,0,0,0,1,0,0],"Ø":96}
-    🔍 DM0[1] FULL: {"C":[1,1,1771575816907,1771804800000,1771804800000,1,1,1],"R":3428}
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
-   Sample: ["0","0","0","1771575844400","1771545600000","1771545600000"]
+   Sample: ["/akn/nl/act/gm0301/2024/omgevingsvisie","gemeente Zutphen","Gemeente","1771575844400","1771545600000",""]
    Parsed 0 gemeenten
 
 📊 [I3] Scraping Behandeldiensten...
@@ -61,21 +40,9 @@
     ✅ Matched page: "I3. Behandeldiensten" (section: ReportSection8cfead118e9140c0c34c)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
-    🔍 DSR top-level keys: Version, MinorVersion, DS
-    🔍 DSR.DS length: 1
-    🔍 DSR has NO ValueDicts!
-    🔍 DS[0] keys: N, PH, IC, RT, ValueDicts
-    🔍 DS[0].ValueDicts keys: D0, D1, D2, D3, D4
-    🔍 PH[0] keys: DM0
-    🔍 PH[0].DM0 length: 500
-    🔍 DM0[0] keys: S, C, Ø
-    🔍 DM0[0] FULL: {"S":[{"N":"G0","T":4},{"N":"G1","T":7},{"N":"G2","T":1,"DN":"D0"},{"N":"G3","T":1,"DN":"D1"},{"N":"G4","T":1,"DN":"D2"},{"N":"G5","T":1,"DN":"D3"},{"N":"G6","T":1,"DN":"D4"}],"C":[16089,1769558400000,0,0,0],"Ø":96}
-    🔍 DM0[1] FULL: {"C":[12583,1768435200000,1,1,1],"R":96}
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
-   Sample: ["16089","1769558400000","0","0","0"]
-   Parsed 0 gemeenten
+   Sample: ["16089","1769558400000","Gemeente Rijswijk","Buisleiding bouwen, in stand houden of gebruiken","Omgevingsdienst Haaglanden",""]
+   Parsed 264 gemeenten
 
 📊 [T1] Scraping Toepasbare regels...
   📄 Navigating to "T1."...
@@ -83,31 +50,11 @@
     ✅ Matched page: "T1. Toepasbare regels" (section: ReportSection85199f608a8091c8de06)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
-    🔍 DSR top-level keys: Version, MinorVersion, DS
-    🔍 DSR.DS length: 1
-    🔍 DSR has NO ValueDicts!
-    🔍 DS[0] keys: N, PH, IC, HAD
-    🔍 PH[0] keys: DM0
-    🔍 PH[0].DM0 length: 1
-    🔍 DM0[0] keys: S, M0
-    🔍 DM0[0] FULL: {"S":[{"N":"M0","T":1}],"M0":"95821 rijen, data via API op: 20-feb-2026 11:51:02"}
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
-    🔍 DSR top-level keys: Version, MinorVersion, DS
-    🔍 DSR.DS length: 1
-    🔍 DSR has NO ValueDicts!
-    🔍 DS[0] keys: N, PH, IC, RT, ValueDicts
-    🔍 DS[0].ValueDicts keys: D0, D1, D2, D3, D4, D5
-    🔍 PH[0] keys: DM0
-    🔍 PH[0].DM0 length: 500
-    🔍 DM0[0] keys: S, C, Ø
-    🔍 DM0[0] FULL: {"S":[{"N":"G0","T":1,"DN":"D0"},{"N":"G1","T":4},{"N":"G2","T":4},{"N":"G3","T":7},{"N":"G4","T":7},{"N":"G5","T":7},{"N":"G6","T":1,"DN":"D1"},{"N":"G7","T":7},{"N":"G8","T":1,"DN":"D2"},{"N":"G9","T":1,"DN":"D3"},{"N":"G10","T":1,"DN":"D4"},{"N":"M0","T":1,"DN":"D5"}],"C":[0,107247,1,1771586741000,1767744000000,1771545600000,0,0,0,0,0],"Ø":128}
-    🔍 DM0[1] FULL: {"C":[108994,1771632000000,1,1],"R":973,"Ø":32}
-    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
-   Sample: ["0","107247","1","1771586741000","1767744000000","1771545600000"]
-   Parsed 0 gemeenten
+   Sample: ["gemeente Uithoorn","107247","1","1771586741000","1767744000000","1771545600000"]
+   Parsed 34 gemeenten
 
 ☁️ Merging and syncing to Google Sheet...
-   Total unique gemeenten: 0
-
-✅ Sync complete! 0/0 records pushed.
+   Total unique gemeenten: 271
+...............................................................................................................................................................................................................................................................................
+✅ Sync complete! 271/271 records pushed.
