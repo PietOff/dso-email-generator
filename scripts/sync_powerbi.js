@@ -1,277 +1,226 @@
 import puppeteer from 'puppeteer';
-import fs from 'fs';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxSBxwydzP5DZbpd4mI-LK3GPlMwVsTXpMOSnUWqtTXJdbFAMhnwOHubehOF_X67XE3/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
+// ============================================================================
+// APPROACH: Network Interception
+// ============================================================================
+// Power BI renders its UI in a canvas/WebGL context. DOM-based clicking and
+// scraping does NOT work reliably. Instead, we intercept the internal REST API
+// calls that Power BI makes to load its data. These calls return structured
+// JSON that we can parse directly — no DOM scraping needed.
+//
+// For navigation between report pages, we append "&pageName=..." to the URL
+// and reload, which is far more reliable than trying to click canvas tabs.
+// ============================================================================
+
 // --- HELPERS ---
 
-async function waitForPBI(page) {
-    // Wait for either the old or new Power BI containers, or just let it timeout and rely on the 8s sleep
-    await page.waitForSelector('.visualContainer, .explorationContainer, .mid-viewport, [aria-label="Startpagina"]', { timeout: 30000 }).catch(() => { });
-    await new Promise(r => setTimeout(r, 10000)); // Let visuals render fully
+/**
+ * Collect all Power BI querydata API responses from network traffic.
+ * Returns a Map of URL → parsed JSON body.
+ */
+function setupNetworkCapture(page) {
+    const captured = { queries: [], pages: [], config: null };
+
+    page.on('response', async (response) => {
+        const url = response.url();
+        try {
+            if (url.includes('/public/reports/querydata')) {
+                const body = await response.json().catch(() => null);
+                if (body) captured.queries.push({ url, body });
+            }
+            // Capture the report config to discover page names
+            if (url.includes('/public/reports/') && !url.includes('querydata') && !url.includes('modelsAndExploration')) {
+                const body = await response.json().catch(() => null);
+                if (body?.sections || body?.pages) {
+                    captured.pages = body.sections || body.pages || [];
+                }
+            }
+            // The exploration/model config often has page info
+            if (url.includes('modelsAndExploration')) {
+                const body = await response.json().catch(() => null);
+                if (body) {
+                    captured.config = body;
+                    // Extract page names from exploration model
+                    const sections = body?.exploration?.sections;
+                    if (sections && sections.length > 0) {
+                        captured.pages = sections;
+                    }
+                }
+            }
+        } catch {
+            // Ignore parse errors on non-JSON responses
+        }
+    });
+
+    return captured;
 }
 
-async function navigateToPage(page, pageName) {
-    console.log(`  📄 Navigating to "${pageName}"...`);
+/**
+ * Extract tabular data from Power BI querydata API responses.
+ * Power BI wraps data in a deeply nested structure; this function
+ * walks it and returns arrays of row arrays.
+ */
+function extractRowsFromQueryData(queryResponses) {
+    const allRows = [];
 
-    const coords = await page.evaluate((target) => {
-        const selectors = [
-            'button', '[role="button"]', '[role="tab"]',
-            '[role="link"]', '[role="listitem"]', '.sectionItem',
-            'a'
-        ];
+    for (const { body } of queryResponses) {
+        try {
+            const results = body?.results;
+            if (!results) continue;
 
-        let bestMatch = null;
-        let maxArea = 0;
+            for (const result of results) {
+                const data = result?.result?.data;
+                if (!data) continue;
 
-        for (const selector of selectors) {
-            const elements = Array.from(document.querySelectorAll(selector));
-            for (const el of elements) {
-                if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
-                    const rect = el.getBoundingClientRect();
-                    const style = window.getComputedStyle(el);
+                const dsr = data.dsr;
+                if (!dsr?.DS) continue;
 
-                    if (rect.width > 5 && rect.height > 5 && style.opacity !== '0' && style.visibility !== 'hidden' && rect.x > 0 && rect.y > 0) {
-                        const area = rect.width * rect.height;
-                        if (area > maxArea) {
-                            maxArea = area;
-                            bestMatch = { x: rect.x + (rect.width * 0.1), y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                for (const ds of dsr.DS) {
+                    if (!ds.PH) continue;
+                    for (const ph of ds.PH) {
+                        if (!ph.DM0) continue;
+                        for (const dm of ph.DM0) {
+                            // Each DM0 entry has a C array with cell values
+                            if (dm.C) {
+                                allRows.push(dm.C.map(c => String(c ?? '')));
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        // Fallback: If no interactive elements found, check all divs as a last resort
-        if (!bestMatch) {
-            const allDivs = Array.from(document.querySelectorAll('div'));
-            for (const el of allDivs) {
-                if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
-                    const rect = el.getBoundingClientRect();
-                    if (rect.width > 5 && rect.height > 5 && rect.width < 500 && rect.height < 100 && rect.x > 0 && rect.y > 0) {
-                        return { x: rect.x + (rect.width * 0.1), y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
-                    }
+                // Also try the simpler ValueDicts / Value format
+                const descriptor = data.descriptor;
+                const valueDicts = dsr?.ValueDicts;
+                if (descriptor && valueDicts) {
+                    console.log(`    📋 Found ValueDicts with ${Object.keys(valueDicts).length} dictionaries`);
                 }
             }
+        } catch (e) {
+            console.log(`    ⚠️ Error parsing query response: ${e.message}`);
         }
-
-        return bestMatch;
-    }, pageName);
-
-    if (coords) {
-        console.log(`  ✅ Mouse clicking screen coordinates: x=${Math.round(coords.x)}, y=${Math.round(coords.y)} (Element size: ${Math.round(coords.width)}x${Math.round(coords.height)})`);
-
-        // Take a screenshot right before clicking to see what we are targeting
-        await page.screenshot({ path: `debug_before_${pageName.replace(/[^a-z0-9]/gi, '')}.png` });
-
-        // Move mouse to center, then slightly offset to click natural button space
-        await page.mouse.move(coords.x, coords.y);
-        await new Promise(r => setTimeout(r, 200));
-        await page.mouse.down();
-        await new Promise(r => setTimeout(r, 100));
-        await page.mouse.up();
-
-        await new Promise(r => setTimeout(r, 8000)); // wait for page to load
-
-        // Take a screenshot right after waiting to see if it navigated
-        await page.screenshot({ path: `debug_after_${pageName.replace(/[^a-z0-9]/gi, '')}.png` });
-
-        // Dump the HTML DOM for diagnostics
-        const htmlContent = await page.content();
-        fs.writeFileSync(`debug_dom_${pageName.replace(/[^a-z0-9]/gi, '')}.html`, htmlContent);
-    } else {
-        console.log(`  ⚠️ Could not find page "${pageName}"`);
     }
+
+    return allRows;
 }
 
+/**
+ * Navigate to a specific Power BI report page by name.
+ * Uses URL parameter approach which is more reliable than clicking canvas elements.
+ */
+async function navigateToPage(page, pageName, captured) {
+    console.log(`  📄 Navigating to "${pageName}"...`);
 
-async function scrapeVisibleRows(page) {
-    return page.evaluate(() => {
-        // Target rows that are actually inside table/matrix visuals, not just random canvas containers
-        const rowContainers = document.querySelectorAll('.visualContainer [role="row"], .table-visual [role="row"], .pivotTable [role="row"], .tablix .row, .tablixCanvas [role="row"]');
-
-        let targetRows;
-        if (rowContainers.length > 0) {
-            targetRows = rowContainers;
-        } else {
-            // Fallback: Just grab anything labeled as a row
-            targetRows = document.querySelectorAll('[role="row"]');
+    // Strategy 1: Find the page section name from the captured config
+    let sectionName = null;
+    if (captured.pages && captured.pages.length > 0) {
+        console.log(`    📑 Known pages: ${captured.pages.map(p => p.displayName || p.name || 'unnamed').join(', ')}`);
+        const match = captured.pages.find(p =>
+            (p.displayName || '').startsWith(pageName) ||
+            (p.name || '').startsWith(pageName)
+        );
+        if (match) {
+            sectionName = match.name;
+            console.log(`    ✅ Matched page: "${match.displayName}" (section: ${sectionName})`);
         }
+    }
 
-        const data = [];
-        targetRows.forEach(row => {
-            const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [role="rowheader"], .cell');
-            if (cells.length < 3) return; // Ignore single-cell labels like "Gepubliceerd op"
+    // Strategy 2: Try URL-based navigation
+    if (sectionName) {
+        const navUrl = `${POWER_BI_URL}&pageName=${encodeURIComponent(sectionName)}`;
+        console.log(`    🔗 Loading page via URL parameter...`);
+        // Clear old queries
+        captured.queries = [];
+        await page.goto(navUrl, { waitUntil: 'networkidle2', timeout: 90000 });
+        await new Promise(r => setTimeout(r, 8000)); // Let visuals render
+        console.log(`    ✅ Page loaded. Captured ${captured.queries.length} new API queries.`);
+        return;
+    }
 
-            const rowData = Array.from(cells).map(c => (c.textContent || '').trim());
-            // Only push if there's actual text content
-            if (rowData.some(t => t.length > 0)) {
-                data.push(rowData);
+    // Strategy 3: If no config, try clicking (fallback, but likely won't work)
+    console.log(`    ⚠️ No page config found, attempting DOM click fallback...`);
+    const clicked = await page.evaluate((target) => {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (node.nodeValue.trim().startsWith(target)) {
+                let el = node.parentElement;
+                // Try to find a clickable ancestor
+                while (el && el !== document.body) {
+                    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.tagName === 'A') {
+                        el.click();
+                        return true;
+                    }
+                    el = el.parentElement;
+                }
+                node.parentElement.click();
+                return true;
             }
-        });
-        return data;
-    });
-}
-
-async function scrapeAllRows(page) {
-    // Wait explicitly for a row that has multiple cells (an actual data table row)
-    await page.waitForFunction(() => {
-        const rowContainers = document.querySelectorAll('.visualContainer [role="row"], .table-visual [role="row"], .pivotTable [role="row"], .tablix .row, .tablixCanvas [role="row"], [role="row"]');
-        for (const r of rowContainers) {
-            if (r.querySelectorAll('[role="gridcell"], [role="cell"], [role="columnheader"], .cell').length >= 3) return true;
         }
         return false;
-    }, { timeout: 45000 }).catch(() => console.log('    ⚠️ Timed out waiting for multi-column data cells.'));
+    }, pageName);
 
-    // Power BI virtualizes tables — only ~25 rows visible at a time.
-    // We scroll the table container to load all rows.
-    const allRows = new Map(); // key = first cell text to dedupe
-
-    // Get the grid container
-    const hasGrid = await page.evaluate(() => !!document.querySelector('[role="grid"]'));
-    if (!hasGrid) {
-        console.log('    ⚠️ No grid found on this page');
-        return [];
+    if (clicked) {
+        console.log(`    ⚠️ DOM click attempted (may not work with canvas). Waiting...`);
+        captured.queries = [];
+        await new Promise(r => setTimeout(r, 8000));
+    } else {
+        console.log(`    ❌ Could not find any element matching "${pageName}"`);
     }
-
-    let previousSize = 0;
-    let scrollAttempts = 0;
-    const MAX_SCROLLS = 50; // safety limit
-
-    while (scrollAttempts < MAX_SCROLLS) {
-        const visible = await scrapeVisibleRows(page);
-
-        if (allRows.size === 0 && visible.length > 0) {
-            console.log('    👀 Sample Row 0:', JSON.stringify(visible[0]));
-            if (visible.length > 1) console.log('    👀 Sample Row 1:', JSON.stringify(visible[1]));
-        }
-
-        for (const row of visible) {
-            const key = row.join('|');
-            if (!allRows.has(key)) {
-                allRows.set(key, row);
-            }
-        }
-
-        if (allRows.size === previousSize) {
-            scrollAttempts++;
-            if (scrollAttempts > 3) break; // no new data after 3 scrolls
-        } else {
-            scrollAttempts = 0;
-            previousSize = allRows.size;
-        }
-
-        // Scroll the grid container down
-        await page.evaluate(() => {
-            const grid = document.querySelector('[role="grid"]');
-            if (grid) {
-                grid.scrollTop += 500;
-            }
-            // Also try scrolling the scrollbar region
-            const scrollRegion = document.querySelector('.bodyCells, .scroll-region, .innerContainer');
-            if (scrollRegion) {
-                scrollRegion.scrollTop += 500;
-            }
-        });
-        await new Promise(r => setTimeout(r, 1500));
-    }
-
-    return Array.from(allRows.values());
 }
 
-// --- SCRAPERS PER PAGE ---
+// --- PARSERS (unchanged from original) ---
 
 function parseR1(rows) {
-    // R1 columns: Bevoegd gezag, Bestuurslaag, Citeertitel, Versie, Soort, Registratietijdstip, Geldig op, Inwerking op, AKN
-    // We want: { gemeente, soort (Omgevingsplan/Omgevingsvisie/etc) }
     const results = {};
-
     for (const row of rows) {
         const bevoegdGezag = row[0] || '';
-        const soort = row[4] || ''; // Column index 4 = "Soort"
-
+        const soort = row[4] || '';
         if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
-
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
-
-        // Determine regulation type priority: Omgevingsplan > Omgevingsvisie > Voorbeschermingsregels
         const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
         const currentPriority = priority[soort] || 5;
         const existingPriority = results[naam]?.priority || 99;
-
         if (currentPriority < existingPriority) {
-            results[naam] = {
-                gemeente: naam,
-                regelingType: soort,
-                priority: currentPriority,
-                kpi4: String(currentPriority) // 1=best, 5=worst
-            };
+            results[naam] = { gemeente: naam, regelingType: soort, priority: currentPriority, kpi4: String(currentPriority) };
         }
     }
     return Object.values(results);
 }
 
 function parseI3(rows) {
-    // I3 columns: id, Begindatum, Bevoegd gezag, Activiteit, Behandeldienst, Toestemming, Bevoegd gezag (locatie)
-    // We want: { gemeente, behandeldienst }
     const results = {};
-
     for (const row of rows) {
-        const bevoegdGezag = row[2] || ''; // Column 2 = "Bevoegd gezag"
-        const behandeldienst = row[4] || ''; // Column 4 = "Behandeldienst"
-
+        const bevoegdGezag = row[2] || '';
+        const behandeldienst = row[4] || '';
         if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
-
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam || !behandeldienst) continue;
-
-        // Store most common behandeldienst per gemeente
-        if (!results[naam]) {
-            results[naam] = { gemeente: naam, behandeldiensten: {} };
-        }
+        if (!results[naam]) results[naam] = { gemeente: naam, behandeldiensten: {} };
         results[naam].behandeldiensten[behandeldienst] = (results[naam].behandeldiensten[behandeldienst] || 0) + 1;
     }
-
     return Object.entries(results).map(([naam, data]) => {
-        // Pick most common behandeldienst
         const sorted = Object.entries(data.behandeldiensten).sort((a, b) => b[1] - a[1]);
-        return {
-            gemeente: naam,
-            behandeldienst: sorted[0]?.[0] || ''
-        };
+        return { gemeente: naam, behandeldienst: sorted[0]?.[0] || '' };
     });
 }
 
 function parseT1(rows) {
-    // T1 columns: Bestuursorgaan, STTR ID, STTR versie, Wijzigingsdatum, Startdatum, Einddatum, Activiteit, Act. tot, Soort STTR, TR Software
-    // We want: { gemeente, aantalRegels, laatsteWijziging, trSoftware }
     const results = {};
-
     for (const row of rows) {
         const bestuursorgaan = row[0] || '';
         const wijzigingsdatum = row[3] || '';
-        const activiteit = row[6] || '';
         const trSoftware = row[9] || '';
-
         if (!bestuursorgaan.toLowerCase().startsWith('gemeente')) continue;
-
         const naam = bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
-
-        if (!results[naam]) {
-            results[naam] = { gemeente: naam, aantalRegels: 0, laatsteWijziging: '', trSoftware: '' };
-        }
+        if (!results[naam]) results[naam] = { gemeente: naam, aantalRegels: 0, laatsteWijziging: '', trSoftware: '' };
         results[naam].aantalRegels++;
-
-        // Track latest wijzigingsdatum
-        if (wijzigingsdatum > results[naam].laatsteWijziging) {
-            results[naam].laatsteWijziging = wijzigingsdatum;
-        }
-        if (trSoftware && !results[naam].trSoftware) {
-            results[naam].trSoftware = trSoftware;
-        }
+        if (wijzigingsdatum > results[naam].laatsteWijziging) results[naam].laatsteWijziging = wijzigingsdatum;
+        if (trSoftware && !results[naam].trSoftware) results[naam].trSoftware = trSoftware;
     }
     return Object.values(results);
 }
@@ -279,7 +228,7 @@ function parseT1(rows) {
 // --- MAIN ---
 
 (async () => {
-    console.log('🚀 Starting Power BI Sync V2...');
+    console.log('🚀 Starting Power BI Sync V3 (Network Interception)...');
     const browser = await puppeteer.launch({
         headless: "new",
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -288,18 +237,46 @@ function parseT1(rows) {
     await page.setViewport({ width: 1400, height: 900 });
 
     try {
-        console.log('📄 Loading Power BI Report...');
+        // Set up network capture BEFORE navigating
+        const captured = setupNetworkCapture(page);
+
+        console.log('📄 Loading Power BI Report (initial page)...');
         await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
-        await waitForPBI(page);
-        console.log('✅ Dashboard loaded.');
+        // Extra wait to let all API calls complete
+        await new Promise(r => setTimeout(r, 12000));
+
+        console.log(`✅ Dashboard loaded. Captured ${captured.queries.length} API queries so far.`);
+
+        // Log discovered pages
+        if (captured.pages.length > 0) {
+            console.log(`📑 Discovered ${captured.pages.length} report pages:`);
+            captured.pages.forEach((p, i) => {
+                console.log(`   [${i}] ${p.displayName || p.name || 'unnamed'} (section: ${p.name || '?'})`);
+            });
+        } else {
+            console.log('⚠️ No page config found in API responses. Will try DOM click fallback.');
+        }
+
+        // Log all API data found on the initial page for diagnostics
+        if (captured.queries.length > 0) {
+            const initialRows = extractRowsFromQueryData(captured.queries);
+            console.log(`📊 Initial page data: ${initialRows.length} rows from ${captured.queries.length} queries`);
+            if (initialRows.length > 0) {
+                console.log(`   Sample row [0]: ${JSON.stringify(initialRows[0].slice(0, 5))}`);
+            }
+        }
 
         // =====================
         // SCRAPE R1: Regelingen
         // =====================
         console.log('\n📊 [R1] Scraping Regelingen...');
-        await navigateToPage(page, 'R1.');
-        const r1Rows = await scrapeAllRows(page);
-        console.log(`   Found ${r1Rows.length} raw rows`);
+        captured.queries = []; // Clear for fresh capture
+        await navigateToPage(page, 'R1.', captured);
+        const r1Rows = extractRowsFromQueryData(captured.queries);
+        console.log(`   Found ${r1Rows.length} raw rows from API`);
+        if (r1Rows.length > 0) {
+            console.log(`   Sample: ${JSON.stringify(r1Rows[0].slice(0, 6))}`);
+        }
         const regelingen = parseR1(r1Rows);
         console.log(`   Parsed ${regelingen.length} gemeenten`);
 
@@ -307,11 +284,13 @@ function parseT1(rows) {
         // SCRAPE I3: Behandeldiensten
         // =====================
         console.log('\n📊 [I3] Scraping Behandeldiensten...');
-        await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
-        await waitForPBI(page);
-        await navigateToPage(page, 'I3.');
-        const i3Rows = await scrapeAllRows(page);
-        console.log(`   Found ${i3Rows.length} raw rows`);
+        captured.queries = [];
+        await navigateToPage(page, 'I3.', captured);
+        const i3Rows = extractRowsFromQueryData(captured.queries);
+        console.log(`   Found ${i3Rows.length} raw rows from API`);
+        if (i3Rows.length > 0) {
+            console.log(`   Sample: ${JSON.stringify(i3Rows[0].slice(0, 6))}`);
+        }
         const behandeldiensten = parseI3(i3Rows);
         console.log(`   Parsed ${behandeldiensten.length} gemeenten`);
 
@@ -319,11 +298,13 @@ function parseT1(rows) {
         // SCRAPE T1: Toepasbare regels
         // =====================
         console.log('\n📊 [T1] Scraping Toepasbare regels...');
-        await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
-        await waitForPBI(page);
-        await navigateToPage(page, 'T1.');
-        const t1Rows = await scrapeAllRows(page);
-        console.log(`   Found ${t1Rows.length} raw rows`);
+        captured.queries = [];
+        await navigateToPage(page, 'T1.', captured);
+        const t1Rows = extractRowsFromQueryData(captured.queries);
+        console.log(`   Found ${t1Rows.length} raw rows from API`);
+        if (t1Rows.length > 0) {
+            console.log(`   Sample: ${JSON.stringify(t1Rows[0].slice(0, 6))}`);
+        }
         const toepasbaar = parseT1(t1Rows);
         console.log(`   Parsed ${toepasbaar.length} gemeenten`);
 
@@ -331,8 +312,6 @@ function parseT1(rows) {
         // MERGE & PUSH
         // =====================
         console.log('\n☁️ Merging and syncing to Google Sheet...');
-
-        // Build a combined lookup by gemeente
         const merged = {};
 
         for (const r of regelingen) {
@@ -366,10 +345,7 @@ function parseT1(rows) {
                 aantalRegels: String(record.aantalRegels || ''),
                 laatsteWijziging: record.laatsteWijziging || '',
                 trSoftware: record.trSoftware || '',
-                // Placeholders for KPIs we don't scrape yet
-                kpi1: '',
-                kpi2: '',
-                kpi3: ''
+                kpi1: '', kpi2: '', kpi3: ''
             };
 
             try {
@@ -380,11 +356,10 @@ function parseT1(rows) {
                 });
                 successCount++;
                 process.stdout.write('.');
-            } catch (e) {
+            } catch {
                 process.stdout.write('x');
             }
 
-            // Rate limit: 100ms between requests
             await new Promise(r => setTimeout(r, 100));
         }
 
