@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
 import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData } from './utils/contentService';
-import { fetchPowerBIData } from './utils/powerbiService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 
@@ -23,8 +22,6 @@ function App() {
   const [showBaseStory, setShowBaseStory] = useState(false);
   const [sheetContent, setSheetContent] = useState(null);
   const [monitorData, setMonitorData] = useState(null);
-  const [pbiData, setPbiData] = useState(null);
-  const [pbiLoading, setPbiLoading] = useState(false);
   const [contentStatus, setContentStatus] = useState('loading');
   const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
@@ -93,13 +90,17 @@ function App() {
   useEffect(() => {
     if (notes && notes.length > 0) {
       const dateRegex = /(\d{2}-\d{2}-\d{4})/;
-      // Filter for notes that look like user entries
-      const relevantNotes = notes.filter(n => dateRegex.test(n.notitie) || n.notitie.includes('['));
+      // Filter for notes that look like user entries safely
+      const relevantNotes = notes.filter(n => {
+        if (!n || !n.notitie || typeof n.notitie !== 'string') return false;
+        return dateRegex.test(n.notitie) || n.notitie.includes('[');
+      });
 
       if (relevantNotes.length > 0) {
         const lastNote = relevantNotes[0];
         const dateMatch = lastNote.notitie.match(dateRegex);
-        const year = dateMatch ? dateMatch[0].split('-')[2] : '';
+        const year = dateMatch ? dateMatch[1].split('-')[2] : '';
+
         const authorMatch = lastNote.notitie.match(/\[([A-Z]+)/);
         const author = authorMatch ? authorMatch[1] : 'een collega';
 
@@ -164,7 +165,7 @@ function App() {
       };
     }
 
-    // OVERRIDE with Monitor Data if available
+    // OVERRIDE with Monitor Data if available (Power BI data synced via Action)
     if (monitorData && monitorData[name.toLowerCase()]) {
       const m = monitorData[name.toLowerCase()];
       console.log('Using Monitor Data for', name, m);
@@ -172,20 +173,12 @@ function App() {
       if (m.kpi2) newFigures.kpi2 = m.kpi2;
       if (m.kpi3) newFigures.kpi3 = m.kpi3;
       if (m.kpi4) newFigures.kpi4 = m.kpi4;
+
+      // Override kpi4 with regelingType priority if available in monitor
+      if (m.kpi4) newFigures.kpi4 = m.kpi4;
     }
 
     setFigures(newFigures);
-
-    // Fetch LIVE Power BI data for this gemeente
-    setPbiLoading(true);
-    fetchPowerBIData(name).then(data => {
-      setPbiData(data);
-      // Override kpi4 with live regelingType priority if available
-      if (data?.kpi4) {
-        setFigures(prev => ({ ...prev, kpi4: data.kpi4 }));
-      }
-      setPbiLoading(false);
-    }).catch(() => setPbiLoading(false));
 
     // Load notes + email log for this gemeente
     const notesData = await fetchNotes(name);
@@ -215,7 +208,7 @@ function App() {
   };
 
   const generate = () => {
-    const enriched = pbiData || (monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null);
+    const enriched = monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null;
     const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
     setGeneratedEmails(output);
     setActiveTab('email1');
@@ -266,7 +259,13 @@ function App() {
                 onClick={() => setActiveView('monitor')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'monitor' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                📊 DSO Monitor
+                📊 DSO Databank
+              </button>
+              <button
+                onClick={() => setActiveView('matrix')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'matrix' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                🗺️ Volledige Matrix
               </button>
             </div>
           </div>
@@ -298,8 +297,105 @@ function App() {
           </div>
         </div>
 
-        {/* DSO Monitor View (Power BI Embed) */}
+        {/* DSO Databank View (Clean Data Presentation) */}
         <div className={activeView === 'monitor' ? 'block' : 'hidden'}>
+          <div className="bg-white/80 backdrop-blur-sm p-6 lg:p-10 rounded-2xl shadow-xl border border-white/60 mx-auto max-w-4xl">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+              <span className="text-3xl">📊</span> Power BI Databank
+            </h2>
+            <p className="text-slate-500 mb-8 text-sm">
+              Zoek een gemeente om direct de actuele openbare data uit het DSO en Power BI in te zien, zoals het actuele beleid (Omgevingsplan/Voorbeschermingsregels), de gekoppelde behandeldienst en de toepasbare regels.
+            </p>
+
+            <div className="relative mb-8 z-20">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSelectedGemeente(''); }}
+                placeholder="Zoek een gemeente..."
+                className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm md:text-base shadow-sm"
+              />
+              {searchQuery && !selectedGemeente && (
+                <div className="absolute z-10 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-80 overflow-auto">
+                  {filteredGemeenten.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => handleSelectGemeente(name)}
+                      className="w-full text-left px-5 py-3 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-0"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedGemeente && monitorData && (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                <h3 className="text-xl font-semibold text-slate-800 flex items-center justify-between border-b pb-4">
+                  <span>Gemeente {selectedGemeente.replace(/^gemeente\s+/i, '')}</span>
+                  <span className="text-sm font-normal text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{gemeenteStatus || 'Geen status'}</span>
+                </h3>
+
+                {(() => {
+                  const m = monitorData[selectedGemeente.toLowerCase()];
+                  if (!m) return (
+                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
+                      <span className="text-4xl block mb-3">📭</span>
+                      <h4 className="font-semibold text-slate-700">Geen actuele data gevonden</h4>
+                      <p className="text-sm text-slate-500 mt-1">Deze gemeente staat mogelijk niet in de meest recente Power BI export.</p>
+                    </div>
+                  );
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
+                        <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 block">Regeling & Beleid</span>
+                        <div className="text-lg font-medium text-slate-800">{m.regelingType || 'Niet bekend'}</div>
+                        <div className="text-sm text-slate-500 mt-2">Actuele status van het Omgevingsplan volgens het DSO.</div>
+                      </div>
+
+                      <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100">
+                        <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1 block">Toepasbare Regels</span>
+                        <div className="text-lg font-medium text-slate-800">{m.aantalRegels ? `${m.aantalRegels} vragenbomen` : '0 regels'}</div>
+                        {m.trSoftware && <div className="text-sm text-slate-500 mt-2">Software: <strong>{m.trSoftware}</strong></div>}
+                        {m.laatsteWijziging && <div className="text-xs text-slate-400 mt-1">Laatste wijziging: {m.laatsteWijziging}</div>}
+                      </div>
+
+                      <div className="bg-amber-50/50 p-5 rounded-xl border border-amber-100 md:col-span-2">
+                        <span className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1 block">Uitvoering & Behandeling</span>
+                        <div className="text-lg font-medium text-slate-800">{m.behandeldienst || 'Geen gekoppelde omgevingsdienst'}</div>
+                        <div className="text-sm text-slate-500 mt-2">Deze behandeldienst is in het DSO ingesteld voor het afhandelen van vergunningsaanvragen.</div>
+                      </div>
+
+                      {/* Additional Info from internal Sheet */}
+                      <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 md:col-span-2 mt-4">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Interne KPIs (Uit Google Sheet)</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div>
+                            <div className="text-xs text-slate-500">Dierlijke Mest</div>
+                            <div className="font-medium">{figures.kpi1 || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Omgevingsloket Score</div>
+                            <div className="font-medium">{figures.kpi3 || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-slate-500">Interne Fase</div>
+                            <div className="font-medium">{gemeenteFase || '-'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* DSO Volledige Matrix View (Original Power BI Embed) */}
+        <div className={activeView === 'matrix' ? 'block' : 'hidden'}>
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden" style={{ height: '80vh' }}>
             <iframe
               title="DSO Kruismatrix"
@@ -387,26 +483,6 @@ function App() {
                       <span className="text-xs font-semibold text-green-700">✅ Goed: </span>
                       <span className="text-xs text-green-600">{scoreSummary.good.map(s => s.label).join(', ')}</span>
                     </div>
-                  )}
-
-                  {/* Enriched Power BI Data */}
-                  {(pbiData || (monitorData && monitorData[selectedGemeente?.toLowerCase()])) && (() => {
-                    const m = pbiData || monitorData[selectedGemeente.toLowerCase()];
-                    return (
-                      <div className="mt-3 bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                        <span className="text-xs font-semibold text-indigo-700 block mb-1.5">📊 Live Power BI Data</span>
-                        <div className="grid grid-cols-2 gap-1.5 text-xs text-indigo-600">
-                          {m.regelingType && <span>📋 {m.regelingType}</span>}
-                          {m.behandeldienst && <span>🏢 {m.behandeldienst}</span>}
-                          {m.aantalRegels && <span>📐 {m.aantalRegels} regels</span>}
-                          {m.trSoftware && <span>💻 {m.trSoftware}</span>}
-                          {m.laatsteWijziging && <span>📅 Wijziging: {m.laatsteWijziging}</span>}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {pbiLoading && (
-                    <div className="mt-2 text-xs text-indigo-400 animate-pulse">⏳ Power BI data laden...</div>
                   )}
                 </div>
               )}
