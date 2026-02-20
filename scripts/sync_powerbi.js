@@ -60,8 +60,12 @@ function setupNetworkCapture(page) {
 
 /**
  * Extract tabular data from Power BI querydata API responses.
- * Power BI wraps data in a deeply nested structure; this function
- * walks it and returns arrays of row arrays.
+ * Power BI uses a DSR (Data Shape Result) format where:
+ * - ValueDicts contains lookup dictionaries (D0, D1, etc.) with actual text values
+ * - DM0 entries have C arrays with indices into these dictionaries
+ * - The S (select) metadata tells which columns use which dictionary
+ *
+ * This function resolves the lookups and returns human-readable row arrays.
  */
 function extractRowsFromQueryData(queryResponses) {
     const allRows = [];
@@ -78,24 +82,74 @@ function extractRowsFromQueryData(queryResponses) {
                 const dsr = data.dsr;
                 if (!dsr?.DS) continue;
 
-                for (const ds of dsr.DS) {
-                    if (!ds.PH) continue;
-                    for (const ph of ds.PH) {
-                        if (!ph.DM0) continue;
-                        for (const dm of ph.DM0) {
-                            // Each DM0 entry has a C array with cell values
-                            if (dm.C) {
-                                allRows.push(dm.C.map(c => String(c ?? '')));
-                            }
-                        }
+                // Extract ValueDicts (the lookup dictionaries)
+                const valueDicts = dsr.ValueDicts || {};
+                const dictKeys = Object.keys(valueDicts);
+
+                if (dictKeys.length > 0) {
+                    console.log(`    📋 ValueDicts: ${dictKeys.length} dictionaries`);
+                    for (const key of dictKeys) {
+                        const dict = valueDicts[key];
+                        const len = Array.isArray(dict) ? dict.length : 0;
+                        const sample = Array.isArray(dict) ? dict.slice(0, 3).join(', ') : '?';
+                        console.log(`       ${key}: ${len} entries, sample: [${sample}]`);
                     }
                 }
 
-                // Also try the simpler ValueDicts / Value format
-                const descriptor = data.descriptor;
-                const valueDicts = dsr?.ValueDicts;
-                if (descriptor && valueDicts) {
-                    console.log(`    📋 Found ValueDicts with ${Object.keys(valueDicts).length} dictionaries`);
+                for (const ds of dsr.DS) {
+                    if (!ds.PH) continue;
+
+                    // Get column metadata from S (select) array if available
+                    const selectInfo = ds.S || [];
+                    console.log(`    📊 DataSet has ${ds.PH.length} PH groups, S has ${selectInfo.length} column descriptors`);
+
+                    // Log column info
+                    if (selectInfo.length > 0) {
+                        selectInfo.forEach((s, i) => {
+                            const dictIdx = s.DN;
+                            console.log(`       Col ${i}: GroupKeys=${JSON.stringify(s.GroupKeys || [])}, DN=${dictIdx}, Kind=${s.Kind}`);
+                        });
+                    }
+
+                    for (const ph of ds.PH) {
+                        if (!ph.DM0) continue;
+
+                        // Track the "running" values for repeat-suppression (R field)
+                        let prevValues = [];
+
+                        for (const dm of ph.DM0) {
+                            if (!dm.C) continue;
+
+                            const resolvedRow = dm.C.map((cellValue, colIdx) => {
+                                // Check if this column has a dictionary lookup
+                                // In Power BI DSR, columns with string data use ValueDicts
+                                // The cell value is an index into the dictionary
+                                if (typeof cellValue === 'number') {
+                                    // Try to find the right dictionary for this column
+                                    // Power BI typically uses D0, D1 etc. mapped to column order
+                                    const dictKey = `D${colIdx}`;
+                                    if (valueDicts[dictKey] && valueDicts[dictKey][cellValue] !== undefined) {
+                                        return String(valueDicts[dictKey][cellValue]);
+                                    }
+                                }
+                                return String(cellValue ?? '');
+                            });
+
+                            // Handle repeat suppression: if dm.R is set, some values
+                            // carry over from the previous row
+                            if (dm.R !== undefined && prevValues.length > 0) {
+                                // R is a bitmask indicating which columns repeat
+                                for (let i = 0; i < resolvedRow.length; i++) {
+                                    if (dm.R & (1 << i)) {
+                                        resolvedRow[i] = prevValues[i] || resolvedRow[i];
+                                    }
+                                }
+                            }
+
+                            prevValues = [...resolvedRow];
+                            allRows.push(resolvedRow);
+                        }
+                    }
                 }
             }
         } catch (e) {
