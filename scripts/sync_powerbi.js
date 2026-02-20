@@ -82,19 +82,43 @@ function extractRowsFromQueryData(queryResponses) {
                 const dsr = data.dsr;
                 if (!dsr?.DS) continue;
 
-                // Extract ValueDicts (the lookup dictionaries)
-                const valueDicts = dsr.ValueDicts || {};
-                const dictKeys = Object.keys(valueDicts);
+                // === RAW STRUCTURE DUMP (first query only) ===
+                if (allRows.length === 0) {
+                    console.log(`    🔍 DSR top-level keys: ${Object.keys(dsr).join(', ')}`);
+                    console.log(`    🔍 DSR.DS length: ${dsr.DS.length}`);
+                    if (dsr.IC) console.log(`    🔍 DSR.IC: ${JSON.stringify(dsr.IC).substring(0, 200)}`);
 
-                if (dictKeys.length > 0) {
-                    console.log(`    📋 ValueDicts: ${dictKeys.length} dictionaries`);
-                    for (const key of dictKeys) {
-                        const dict = valueDicts[key];
-                        const len = Array.isArray(dict) ? dict.length : 0;
-                        const sample = Array.isArray(dict) ? dict.slice(0, 3).join(', ') : '?';
-                        console.log(`       ${key}: ${len} entries, sample: [${sample}]`);
+                    // Dump ValueDicts structure
+                    if (dsr.ValueDicts) {
+                        console.log(`    🔍 DSR.ValueDicts keys: ${Object.keys(dsr.ValueDicts).join(', ')}`);
+                    } else {
+                        console.log(`    🔍 DSR has NO ValueDicts!`);
+                    }
+
+                    // Dump first DS entry structure
+                    const ds0 = dsr.DS[0];
+                    console.log(`    🔍 DS[0] keys: ${Object.keys(ds0).join(', ')}`);
+                    if (ds0.ValueDicts) console.log(`    🔍 DS[0].ValueDicts keys: ${Object.keys(ds0.ValueDicts).join(', ')}`);
+                    if (ds0.S) console.log(`    🔍 DS[0].S: ${JSON.stringify(ds0.S).substring(0, 300)}`);
+
+                    // Dump PH structure
+                    if (ds0.PH && ds0.PH[0]) {
+                        const ph0 = ds0.PH[0];
+                        console.log(`    🔍 PH[0] keys: ${Object.keys(ph0).join(', ')}`);
+                        if (ph0.DM0 && ph0.DM0[0]) {
+                            console.log(`    🔍 PH[0].DM0 length: ${ph0.DM0.length}`);
+                            console.log(`    🔍 DM0[0] keys: ${Object.keys(ph0.DM0[0]).join(', ')}`);
+                            console.log(`    🔍 DM0[0] FULL: ${JSON.stringify(ph0.DM0[0]).substring(0, 500)}`);
+                            if (ph0.DM0.length > 1) {
+                                console.log(`    🔍 DM0[1] FULL: ${JSON.stringify(ph0.DM0[1]).substring(0, 500)}`);
+                            }
+                        }
                     }
                 }
+                // === END DUMP ===
+
+                // Extract ValueDicts for lookup resolution
+                const valueDicts = dsr.ValueDicts || {};
 
                 for (const ds of dsr.DS) {
                     if (!ds.PH) continue;
