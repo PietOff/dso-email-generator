@@ -14,31 +14,30 @@ async function waitForPBI(page) {
 async function navigateToPage(page, pageName) {
     console.log(`  📄 Navigating to "${pageName}"...`);
 
-    const clicked = await page.evaluate((target) => {
+    const coords = await page.evaluate((target) => {
         // Find text node matching target
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
         let node;
         while (node = walker.nextNode()) {
             if (node.nodeValue.trim() === target || node.nodeValue.trim().startsWith(target)) {
-                // Find clickable parent
+                // Find clickable parent to get proper bounding box
                 let el = node.parentElement;
                 while (el && el !== document.body) {
-                    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.tagName === 'A') {
-                        el.click();
-                        return true;
+                    const rect = el.getBoundingClientRect();
+                    // Needs to be physically rendered on screen
+                    if (rect.width > 5 && rect.height > 5) {
+                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
                     }
                     el = el.parentElement;
                 }
-                // Fallback: click the direct parent element
-                node.parentElement.click();
-                return true;
             }
         }
-        return false;
+        return null;
     }, pageName);
 
-    if (clicked) {
-        console.log(`  ✅ Clicked: "${pageName}"`);
+    if (coords) {
+        console.log(`  ✅ Mouse clicking screen coordinates: x=${coords.x}, y=${coords.y}`);
+        await page.mouse.click(coords.x, coords.y, { delay: 100 });
         await new Promise(r => setTimeout(r, 8000)); // wait for page to load
     } else {
         console.log(`  ⚠️ Could not find page "${pageName}"`);
