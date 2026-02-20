@@ -6,67 +6,45 @@ const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMT
 // --- HELPERS ---
 
 async function waitForPBI(page) {
-    await page.waitForSelector('.mid-viewport', { timeout: 60000 });
-    await new Promise(r => setTimeout(r, 8000)); // let visuals render
+    // Wait for either the old or new Power BI containers, or just let it timeout and rely on the 8s sleep
+    await page.waitForSelector('.visualContainer, .explorationContainer, .mid-viewport, [aria-label="Startpagina"]', { timeout: 30000 }).catch(() => { });
+    await new Promise(r => setTimeout(r, 10000)); // Let visuals render fully
 }
 
 async function navigateToPage(page, pageName) {
-    // Power BI uses a page navigator at the bottom. Click the page indicator to open the list,
-    // then click the matching page button.
     console.log(`  📄 Navigating to "${pageName}"...`);
 
-    // Try clicking the page navigator (bottom bar)
-    const navOpened = await page.evaluate((target) => {
-        // Look for the page navigation area and click to open page list
-        const pageNav = document.querySelector('.paginatedReportNavigation, .reportNavigation');
-        if (pageNav) { pageNav.click(); return true; }
-
-        // Try the page count button (e.g., "2 of 16")
-        const pageBtn = document.querySelector('[aria-label*="Page navigation"]');
-        if (pageBtn) { pageBtn.click(); return true; }
-
-        // Try clicking any element that looks like page navigation
-        const allBtns = document.querySelectorAll('button');
-        for (const btn of allBtns) {
-            if (btn.textContent.includes(' of ') || btn.textContent.includes(' van ')) {
-                btn.click();
+    const clicked = await page.evaluate((target) => {
+        // Find text node matching target
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while (node = walker.nextNode()) {
+            if (node.nodeValue.trim() === target || node.nodeValue.trim().startsWith(target)) {
+                // Find clickable parent
+                let el = node.parentElement;
+                while (el && el !== document.body) {
+                    if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'button' || el.tagName === 'A') {
+                        el.click();
+                        return true;
+                    }
+                    el = el.parentElement;
+                }
+                // Fallback: click the direct parent element
+                node.parentElement.click();
                 return true;
             }
         }
         return false;
     }, pageName);
 
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Now click the target page button
-    const clicked = await page.evaluate((target) => {
-        const items = document.querySelectorAll('button, [role="tab"], [role="listitem"], .sectionItem');
-        for (const item of items) {
-            if (item.textContent.trim().startsWith(target)) {
-                item.click();
-                return item.textContent.trim();
-            }
-        }
-        // Broader search
-        const allEls = document.querySelectorAll('*');
-        for (const el of allEls) {
-            if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
-                if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'tab' || el.classList.contains('sectionItem')) {
-                    el.click();
-                    return el.textContent.trim();
-                }
-            }
-        }
-        return null;
-    }, pageName);
-
     if (clicked) {
-        console.log(`  ✅ Clicked: "${clicked}"`);
+        console.log(`  ✅ Clicked: "${pageName}"`);
         await new Promise(r => setTimeout(r, 8000)); // wait for page to load
     } else {
         console.log(`  ⚠️ Could not find page "${pageName}"`);
     }
 }
+
 
 async function scrapeVisibleRows(page) {
     return page.evaluate(() => {
@@ -263,6 +241,8 @@ function parseT1(rows) {
         // SCRAPE I3: Behandeldiensten
         // =====================
         console.log('\n📊 [I3] Scraping Behandeldiensten...');
+        await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+        await waitForPBI(page);
         await navigateToPage(page, 'I3.');
         const i3Rows = await scrapeAllRows(page);
         console.log(`   Found ${i3Rows.length} raw rows`);
@@ -273,6 +253,8 @@ function parseT1(rows) {
         // SCRAPE T1: Toepasbare regels
         // =====================
         console.log('\n📊 [T1] Scraping Toepasbare regels...');
+        await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+        await waitForPBI(page);
         await navigateToPage(page, 'T1.');
         const t1Rows = await scrapeAllRows(page);
         console.log(`   Found ${t1Rows.length} raw rows`);

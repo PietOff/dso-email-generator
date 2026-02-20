@@ -118,10 +118,12 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
             }
         };
 
+        // If monitorEnriched is present, it handles Omgevingsplan (kpi4) much better.
+        // We skip processing kpi4 here so we don't get duplicate paragraphs.
         if (figures.kpi1) processKPI('bruidsschat', figures.kpi1);
         if (figures.kpi2) processKPI('regelanalist', figures.kpi2);
         if (figures.kpi3) processKPI('olo', figures.kpi3);
-        if (figures.kpi4) processKPI('omgevingsplan', figures.kpi4);
+        if (figures.kpi4 && (!monitorEnriched || !monitorEnriched.regelingType)) processKPI('omgevingsplan', figures.kpi4);
 
         // Summarize "Good" points
         if (goedePunten.length > 0) {
@@ -162,41 +164,59 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         if (!monitorEnriched) return '';
         const parts = [];
 
-        // Regeling Type (e.g. "Omgevingsplan" vs "Voorbeschermingsregels")
-        if (monitorEnriched.regelingType) {
-            const type = monitorEnriched.regelingType;
-            if (type === 'Omgevingsplan') {
-                parts.push(isInformeel
-                    ? `Uit de Kruismatrix zien we dat jullie al een Omgevingsplan hebben gepubliceerd — goed bezig!`
-                    : `Uit de DSO Kruismatrix blijkt dat ${selectedData.bestuursorgaan} reeds een Omgevingsplan heeft gepubliceerd.`);
-            } else if (type === 'Voorbeschermingsregels' || type === 'Voorbereidingsbesluit') {
-                parts.push(isInformeel
-                    ? `We zien dat jullie nu nog met ${type} werken. Dat betekent dat er nog stappen te zetten zijn richting een volledig Omgevingsplan.`
-                    : `Uit de DSO Kruismatrix blijkt dat ${selectedData.bestuursorgaan} op dit moment werkt met ${type}. Dit betekent dat de transitie naar een definitief Omgevingsplan nog gaande is.`);
+        // Gegevens verzamelen
+        const type = monitorEnriched.regelingType;
+        const countStr = monitorEnriched.aantalRegels;
+        const count = countStr ? parseInt(countStr) : 0;
+        const software = monitorEnriched.trSoftware;
+        const softwareText = software ? ` via ${software}` : '';
+        const behandeldienst = monitorEnriched.behandeldienst;
+
+        let paragraph1 = "";
+
+        // Status Omgevingsplan
+        if (type === 'Omgevingsplan') {
+            paragraph1 = isInformeel
+                ? `Positief om te zien dat jullie in het DSO al een definitief Omgevingsplan hebben gepubliceerd.`
+                : `Aan de hand van de openbare DSO-data valt positief op dat ${selectedData.bestuursorgaan} reeds een Omgevingsplan heeft gepubliceerd.`;
+        } else if (type === 'Voorbeschermingsregels' || type === 'Voorbereidingsbesluit' || type) {
+            paragraph1 = isInformeel
+                ? `Uit de data blijkt dat jullie momenteel in het DSO werken met ${type}. De stap naar een definitief en volledig Omgevingsplan is vaak een flinke kluif.`
+                : `Aan de hand van de openbare DSO-data zien we dat ${selectedData.bestuursorgaan} momenteel werkt met ${type}. De transitie naar een definitief Omgevingsplan vraagt de komende tijd waarschijnlijk nog de nodige capaciteit.`;
+        }
+
+        // Toepasbare Regels
+        if (count > 0) {
+            const ruleText = count < 20
+                ? (isInformeel
+                    ? `Met de huidige inrichting van ${count} toepasbare regels${softwareText} zien we dat er nog veel ruimte is om het Omgevingsloket verder in te richten en zo de dienstverlening te verbeteren.`
+                    : `Met een huidige inrichting van ${count} toepasbare regels${softwareText} is er nog aanzienlijke ruimte om het digitale Omgevingsloket te optimaliseren.`)
+                : (isInformeel
+                    ? `Bovendien hebben jullie al een stevige basis van ${count} toepasbare regels opengesteld${softwareText}. Het beheren, actualiseren en verder uitbreiden van zo'n pakket vergt echter continue aandacht.`
+                    : `Er is bovendien al een substantieel pakket van ${count} toepasbare regels opengesteld${softwareText}. Het beheer en de doorontwikkeling van deze vragenbomen vraagt doorgaans om doorlopende inzet.`);
+
+            paragraph1 = paragraph1 ? `${paragraph1} ${ruleText}` : ruleText;
+        }
+
+        if (paragraph1) {
+            parts.push(paragraph1);
+        }
+
+        // Diensten / Product bridge (AbelTalent / Tafelberg Advies)
+        let bridge = "";
+        if (isInformeel) {
+            bridge = `Juist op dit snijvlak kunnen we helpen. Of het nu gaat om de inzet van een Regelanalist via AbelTalent voor het vertalen van de regels, of om strategisch advies vanuit Tafelberg Advies bij complexere DSO-vraagstukken.`;
+            if (behandeldienst) {
+                bridge += ` Omdat jullie voor de vergunningen samenwerken met ${behandeldienst}, kunnen we ook de afstemming met hen soepeler laten verlopen.`;
+            }
+        } else {
+            bridge = `Op dit specifieke domein bieden wij concrete ondersteuning. Denk hierbij aan de detachering van een gespecialiseerde Regelanalist (via AbelTalent) voor de vertaling naar vragenbomen, of aan strategisch en juridisch advies (via Tafelberg Advies) rondom de planvorming in het DSO.`;
+            if (behandeldienst) {
+                bridge += ` Omdat u in de uitvoering samenwerkt met ${behandeldienst}, kunnen wij ook de regionale ketensamenwerking en afstemming faciliteren.`;
             }
         }
 
-        // Behandeldienst
-        if (monitorEnriched.behandeldienst) {
-            parts.push(isInformeel
-                ? `Jullie werken samen met ${monitorEnriched.behandeldienst} als behandeldienst — wij hebben daar goede ervaring mee.`
-                : `Wij zien dat ${monitorEnriched.behandeldienst} de behandeldienst is voor uw regio. Wij werken regelmatig samen met omgevingsdiensten en kunnen de afstemming hierin ondersteunen.`);
-        }
-
-        // Aantal Regels + Software
-        if (monitorEnriched.aantalRegels && parseInt(monitorEnriched.aantalRegels) > 0) {
-            const count = parseInt(monitorEnriched.aantalRegels);
-            const software = monitorEnriched.trSoftware ? ` (via ${monitorEnriched.trSoftware})` : '';
-            if (count < 20) {
-                parts.push(isInformeel
-                    ? `Met ${count} toepasbare regels${software} is er nog veel ruimte om het Omgevingsloket gebruiksvriendelijker te maken.`
-                    : `Met momenteel ${count} toepasbare regels${software} zien wij mogelijkheden om het digitale Omgevingsloket verder in te richten.`);
-            } else {
-                parts.push(isInformeel
-                    ? `Jullie hebben al ${count} toepasbare regels${software} — het onderhoud daarvan kan behoorlijk wat werk zijn.`
-                    : `Met ${count} toepasbare regels${software} heeft u al een substantieel pakket ingericht. Het beheer en onderhoud hiervan vraagt continue aandacht.`);
-            }
-        }
+        parts.push(bridge);
 
         return parts.join('\n\n');
     };
