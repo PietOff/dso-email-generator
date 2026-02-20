@@ -60,12 +60,15 @@ function setupNetworkCapture(page) {
 
 /**
  * Extract tabular data from Power BI querydata API responses.
- * Power BI uses a DSR (Data Shape Result) format where:
- * - ValueDicts contains lookup dictionaries (D0, D1, etc.) with actual text values
- * - DM0 entries have C arrays with indices into these dictionaries
- * - The S (select) metadata tells which columns use which dictionary
  *
- * This function resolves the lookups and returns human-readable row arrays.
+ * Power BI DSR format (discovered via diagnostic dumps):
+ * - dsr.DS[].ValueDicts = { D0: [...], D1: [...], ... } — lookup dictionaries
+ * - dsr.DS[].PH[].DM0[0].S = column schema, e.g. [{N:"G0",T:1,DN:"D0"}, {N:"G1",T:7}, ...]
+ *   - DN="D0" means this column's values are indices into ValueDicts.D0
+ *   - T:7 = timestamp, T:4 = number, T:1 = string (via dict or literal)
+ * - dsr.DS[].PH[].DM0[].C = cell values (indices into dicts, or literal numbers)
+ * - dsr.DS[].PH[].DM0[].R = repeat suppression bitmask (carry values from prev row)
+ * - dsr.DS[].PH[].DM0[].Ø = null bitmask (which cells are null)
  */
 function extractRowsFromQueryData(queryResponses) {
     const allRows = [];
@@ -82,96 +85,78 @@ function extractRowsFromQueryData(queryResponses) {
                 const dsr = data.dsr;
                 if (!dsr?.DS) continue;
 
-                // === RAW STRUCTURE DUMP (first query only) ===
-                if (allRows.length === 0) {
-                    console.log(`    🔍 DSR top-level keys: ${Object.keys(dsr).join(', ')}`);
-                    console.log(`    🔍 DSR.DS length: ${dsr.DS.length}`);
-                    if (dsr.IC) console.log(`    🔍 DSR.IC: ${JSON.stringify(dsr.IC).substring(0, 200)}`);
-
-                    // Dump ValueDicts structure
-                    if (dsr.ValueDicts) {
-                        console.log(`    🔍 DSR.ValueDicts keys: ${Object.keys(dsr.ValueDicts).join(', ')}`);
-                    } else {
-                        console.log(`    🔍 DSR has NO ValueDicts!`);
-                    }
-
-                    // Dump first DS entry structure
-                    const ds0 = dsr.DS[0];
-                    console.log(`    🔍 DS[0] keys: ${Object.keys(ds0).join(', ')}`);
-                    if (ds0.ValueDicts) console.log(`    🔍 DS[0].ValueDicts keys: ${Object.keys(ds0.ValueDicts).join(', ')}`);
-                    if (ds0.S) console.log(`    🔍 DS[0].S: ${JSON.stringify(ds0.S).substring(0, 300)}`);
-
-                    // Dump PH structure
-                    if (ds0.PH && ds0.PH[0]) {
-                        const ph0 = ds0.PH[0];
-                        console.log(`    🔍 PH[0] keys: ${Object.keys(ph0).join(', ')}`);
-                        if (ph0.DM0 && ph0.DM0[0]) {
-                            console.log(`    🔍 PH[0].DM0 length: ${ph0.DM0.length}`);
-                            console.log(`    🔍 DM0[0] keys: ${Object.keys(ph0.DM0[0]).join(', ')}`);
-                            console.log(`    🔍 DM0[0] FULL: ${JSON.stringify(ph0.DM0[0]).substring(0, 500)}`);
-                            if (ph0.DM0.length > 1) {
-                                console.log(`    🔍 DM0[1] FULL: ${JSON.stringify(ph0.DM0[1]).substring(0, 500)}`);
-                            }
-                        }
-                    }
-                }
-                // === END DUMP ===
-
-                // Extract ValueDicts for lookup resolution
-                const valueDicts = dsr.ValueDicts || {};
-
                 for (const ds of dsr.DS) {
                     if (!ds.PH) continue;
 
-                    // Get column metadata from S (select) array if available
-                    const selectInfo = ds.S || [];
-                    console.log(`    📊 DataSet has ${ds.PH.length} PH groups, S has ${selectInfo.length} column descriptors`);
-
-                    // Log column info
-                    if (selectInfo.length > 0) {
-                        selectInfo.forEach((s, i) => {
-                            const dictIdx = s.DN;
-                            console.log(`       Col ${i}: GroupKeys=${JSON.stringify(s.GroupKeys || [])}, DN=${dictIdx}, Kind=${s.Kind}`);
-                        });
-                    }
+                    // ValueDicts are at the DS level, not the DSR level!
+                    const valueDicts = ds.ValueDicts || {};
 
                     for (const ph of ds.PH) {
-                        if (!ph.DM0) continue;
+                        if (!ph.DM0 || ph.DM0.length === 0) continue;
 
-                        // Track the "running" values for repeat-suppression (R field)
-                        let prevValues = [];
+                        // The first DM0 entry contains the column schema in its S field
+                        const firstEntry = ph.DM0[0];
+                        const schema = firstEntry.S || [];
+
+                        if (schema.length === 0) continue; // No schema = card/KPI visual, skip it
+
+                        // Build the column-to-dict mapping from the schema
+                        // Each schema entry: { N: "G0", T: 1, DN: "D0" }
+                        // DN tells us which dictionary to use for this column
+                        const colDictMap = {};
+                        for (let i = 0; i < schema.length; i++) {
+                            if (schema[i].DN) {
+                                colDictMap[i] = schema[i].DN; // e.g., col 0 → "D0"
+                            }
+                        }
+
+                        const numCols = schema.length;
+
+                        // Track running values for repeat suppression
+                        let prevValues = new Array(numCols).fill('');
 
                         for (const dm of ph.DM0) {
-                            if (!dm.C) continue;
+                            // Skip entries that are just schema (no C array)
+                            // Actually, the first entry has both S and C
+                            const C = dm.C;
+                            if (!C) continue;
 
-                            const resolvedRow = dm.C.map((cellValue, colIdx) => {
-                                // Check if this column has a dictionary lookup
-                                // In Power BI DSR, columns with string data use ValueDicts
-                                // The cell value is an index into the dictionary
-                                if (typeof cellValue === 'number') {
-                                    // Try to find the right dictionary for this column
-                                    // Power BI typically uses D0, D1 etc. mapped to column order
-                                    const dictKey = `D${colIdx}`;
-                                    if (valueDicts[dictKey] && valueDicts[dictKey][cellValue] !== undefined) {
-                                        return String(valueDicts[dictKey][cellValue]);
-                                    }
-                                }
-                                return String(cellValue ?? '');
-                            });
+                            // The C array may be SHORTER than numCols if repeat suppression is active
+                            // We need to reconstruct the full row using R (repeat bitmask)
+                            const R = dm.R || 0; // repeat bitmask
+                            const nullMask = dm['Ø'] || 0; // null bitmask
 
-                            // Handle repeat suppression: if dm.R is set, some values
-                            // carry over from the previous row
-                            if (dm.R !== undefined && prevValues.length > 0) {
-                                // R is a bitmask indicating which columns repeat
-                                for (let i = 0; i < resolvedRow.length; i++) {
-                                    if (dm.R & (1 << i)) {
-                                        resolvedRow[i] = prevValues[i] || resolvedRow[i];
+                            const fullRow = new Array(numCols).fill('');
+                            let cIdx = 0; // index into the C array
+
+                            for (let col = 0; col < numCols; col++) {
+                                // Check if this column repeats from previous row
+                                if (R & (1 << col)) {
+                                    fullRow[col] = prevValues[col];
+                                } else {
+                                    // This column has a new value from C
+                                    const rawVal = (cIdx < C.length) ? C[cIdx] : null;
+                                    cIdx++;
+
+                                    // Check null mask
+                                    if (nullMask & (1 << col)) {
+                                        fullRow[col] = '';
+                                    } else if (rawVal === null || rawVal === undefined) {
+                                        fullRow[col] = '';
+                                    } else {
+                                        // Resolve via dictionary if this column has a dict mapping
+                                        const dictName = colDictMap[col];
+                                        if (dictName && valueDicts[dictName] && typeof rawVal === 'number') {
+                                            fullRow[col] = String(valueDicts[dictName][rawVal] ?? rawVal);
+                                        } else {
+                                            fullRow[col] = String(rawVal);
+                                        }
                                     }
                                 }
                             }
 
-                            prevValues = [...resolvedRow];
-                            allRows.push(resolvedRow);
+                            prevValues = [...fullRow];
+                            allRows.push(fullRow);
                         }
                     }
                 }
