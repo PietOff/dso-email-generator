@@ -22,6 +22,7 @@
    [13] A2. Locaties in ALA (section: ReportSection241d22ad8ff7d6eeb8f0)
    [14] I1. Functionele  structuur  (section: ReportSectiond53227cdda7d9d6e904a)
    [15] S1. Samenwerkingen (section: ReportSection5a29e398cb7434e892a1)
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
 📊 Initial page data: 0 rows from 1 queries
 
 📊 [R1] Scraping Regelingen...
@@ -30,6 +31,8 @@
     ✅ Matched page: "R1. Regelingen" (section: ReportSection4e0ecbf1bc40f8e03830)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
    Sample: ["0","0","0","1771575844400","1771545600000","1771545600000"]
    Parsed 0 gemeenten
@@ -40,6 +43,8 @@
     ✅ Matched page: "I3. Behandeldiensten" (section: ReportSection8cfead118e9140c0c34c)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
    Sample: ["16089","1769558400000","0","0","0"]
    Parsed 0 gemeenten
@@ -50,6 +55,8 @@
     ✅ Matched page: "T1. Toepasbare regels" (section: ReportSection85199f608a8091c8de06)
     🔗 Loading page via URL parameter...
     ✅ Page loaded. Captured 2 new API queries.
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
+    📊 DataSet has 1 PH groups, S has 0 column descriptors
    Found 500 raw rows from API
    Sample: ["0","107247","1","1771586741000","1767744000000","1771545600000"]
    Parsed 0 gemeenten
