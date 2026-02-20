@@ -45,14 +45,14 @@ jobs:
           for f in debug_before_*.png; do
             if [ -f "$f" ]; then
               echo "Uploading $f to 0x0.st..."
-              URL=$(curl -s -F "file=@$f" https://0x0.st || echo "Failed")
+              URL=$(curl -s -A "Mozilla/5.0" -F "file=@$f" https://0x0.st || echo "Failed")
               echo "URL_IMAGE_BEFORE: $URL"
             fi
           done
           for f in debug_after_*.png; do
             if [ -f "$f" ]; then
               echo "Uploading $f to 0x0.st..."
-              URL=$(curl -s -F "file=@$f" https://0x0.st || echo "Failed")
+              URL=$(curl -s -A "Mozilla/5.0" -F "file=@$f" https://0x0.st || echo "Failed")
               echo "URL_IMAGE_AFTER: $URL"
             fi
           done

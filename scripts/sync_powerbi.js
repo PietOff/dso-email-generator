@@ -36,7 +36,7 @@ async function navigateToPage(page, pageName) {
                         const area = rect.width * rect.height;
                         if (area > maxArea) {
                             maxArea = area;
-                            bestMatch = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                            bestMatch = { x: rect.x + (rect.width * 0.1), y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
                         }
                     }
                 }
@@ -50,7 +50,7 @@ async function navigateToPage(page, pageName) {
                 if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
                     const rect = el.getBoundingClientRect();
                     if (rect.width > 5 && rect.height > 5 && rect.width < 500 && rect.height < 100 && rect.x > 0 && rect.y > 0) {
-                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                        return { x: rect.x + (rect.width * 0.1), y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
                     }
                 }
             }
