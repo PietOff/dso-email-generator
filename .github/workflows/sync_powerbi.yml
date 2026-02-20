@@ -1,1 +1,29 @@
-name: Sync Power BI Dataon:  schedule:    - cron: '0 8 * * *'→ Runs at 08:00 # Run daily at 8:00 AM UTC  workflow_dispatch: # Manual trigger  repository_dispatch: # API trigger from Vercel    types: [sync-powerbi]jobs:  sync:    runs-on: ubuntu-latest    steps:      - name: Checkout code        uses: actions/checkout@v4      - name: Setup Node.js        uses: actions/setup-node@v4        with:          node-version: '20'          cache: 'npm'      - name: Install dependencies        run: npm install      - name: Run Sync Script        run: npm run sync        env:          # If we had secrets, we'd add them here          CI: true
+name: Sync Power BI Data
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Runs at 08:00 AM UTC
+  workflow_dispatch:      # Manual trigger
+  repository_dispatch:    # API trigger from Vercel
+    types: [sync-powerbi]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Sync Script
+        run: npm run sync
+        env:
+          CI: true
