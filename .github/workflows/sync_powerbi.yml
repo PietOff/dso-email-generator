@@ -29,6 +29,17 @@ jobs:
         env:
           CI: true
 
+      - name: Print HTML to Logs for Extraction
+        if: always()
+        run: |
+          for f in debug_*.html; do
+            if [ -f "$f" ]; then
+              echo "=== START_DOM_DUMP: $f ==="
+              cat "$f"
+              echo "=== END_DOM_DUMP: $f ==="
+            fi
+          done
+
       - name: Upload Debug Screenshots
         uses: actions/upload-artifact@v4
         if: always()
