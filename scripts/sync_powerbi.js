@@ -1,88 +1,159 @@
-// Standard native fetch in Node 20+
+import puppeteer from 'puppeteer';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxSBxwydzP5DZbpd4mI-LK3GPlMwVsTXpMOSnUWqtTXJdbFAMhnwOHubehOF_X67XE3/exec';
-const PBI_API = 'https://wabi-west-europe-f-primary-api.analysis.windows.net/public/reports/querydata?synchronous=true';
-const RESOURCE_KEY = '385e6016-908c-4d32-aec3-82bf62e9726c';
+const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
-// Helper to execute DAX queries against PowerBI
-async function executeQuery(payload) {
-    const response = await fetch(PBI_API, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-PowerBI-ResourceKey': RESOURCE_KEY,
-            'Origin': 'https://app.powerbi.com',
-            'Referer': 'https://app.powerbi.com/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Safari/537.36'
-        },
-        body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-        throw new Error(`Power BI request failed: ${response.status} ${response.statusText}`);
-    }
-    return response.json();
+// --- HELPERS ---
+
+async function waitForPBI(page) {
+    await page.waitForSelector('.mid-viewport', { timeout: 60000 });
+    await new Promise(r => setTimeout(r, 8000)); // let visuals render
 }
 
-async function fetchRegelingen() {
-    const payload = {
-        version: "1.0.0",
-        queries: [{
-            Query: {
-                Commands: [{
-                    SemanticQueryDataShapeCommand: {
-                        Query: {
-                            Version: 2,
-                            From: [{ Name: "i", Entity: "i6_regelingen" }],
-                            Select: [
-                                { Column: { Expression: { SourceRef: { Source: "i" } }, Property: "Bevoegd_gezag" }, Name: "gemeente" },
-                                { Column: { Expression: { SourceRef: { Source: "i" } }, Property: "soort" }, Name: "soort" }
-                            ]
-                        }
-                    }
-                }]
-            },
-            QueryId: "",
-            ApplicationContext: {
-                DatasetId: "51c296fc-4353-4b12-bb38-2f39f84731da",
-                Sources: [{ ReportId: "c2c5dc44-7f12-4217-bf41-65b161c56ab4", VisualId: "3e593a1cf52bcbb1a986" }]
+async function navigateToPage(page, pageName) {
+    // Power BI uses a page navigator at the bottom. Click the page indicator to open the list,
+    // then click the matching page button.
+    console.log(`  📄 Navigating to "${pageName}"...`);
+
+    // Try clicking the page navigator (bottom bar)
+    const navOpened = await page.evaluate((target) => {
+        // Look for the page navigation area and click to open page list
+        const pageNav = document.querySelector('.paginatedReportNavigation, .reportNavigation');
+        if (pageNav) { pageNav.click(); return true; }
+
+        // Try the page count button (e.g., "2 of 16")
+        const pageBtn = document.querySelector('[aria-label*="Page navigation"]');
+        if (pageBtn) { pageBtn.click(); return true; }
+
+        // Try clicking any element that looks like page navigation
+        const allBtns = document.querySelectorAll('button');
+        for (const btn of allBtns) {
+            if (btn.textContent.includes(' of ') || btn.textContent.includes(' van ')) {
+                btn.click();
+                return true;
             }
-        }],
-        cancelQueries: [],
-        modelId: 3009774
-    };
+        }
+        return false;
+    }, pageName);
 
-    console.log("Fetching Regelingen...");
-    const data = await executeQuery(payload);
+    await new Promise(r => setTimeout(r, 2000));
 
-    const rows = data.results?.[0]?.result?.data?.dsr?.DS?.[0]?.PH?.[0]?.DM0;
-    if (!rows) {
-        console.warn("Could not find rows in RegExp response");
+    // Now click the target page button
+    const clicked = await page.evaluate((target) => {
+        const items = document.querySelectorAll('button, [role="tab"], [role="listitem"], .sectionItem');
+        for (const item of items) {
+            if (item.textContent.trim().startsWith(target)) {
+                item.click();
+                return item.textContent.trim();
+            }
+        }
+        // Broader search
+        const allEls = document.querySelectorAll('*');
+        for (const el of allEls) {
+            if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
+                if (el.tagName === 'BUTTON' || el.getAttribute('role') === 'tab' || el.classList.contains('sectionItem')) {
+                    el.click();
+                    return el.textContent.trim();
+                }
+            }
+        }
+        return null;
+    }, pageName);
+
+    if (clicked) {
+        console.log(`  ✅ Clicked: "${clicked}"`);
+        await new Promise(r => setTimeout(r, 8000)); // wait for page to load
+    } else {
+        console.log(`  ⚠️ Could not find page "${pageName}"`);
+    }
+}
+
+async function scrapeVisibleRows(page) {
+    return page.evaluate(() => {
+        const rows = document.querySelectorAll('[role="row"]');
+        const data = [];
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [role="rowheader"]');
+            if (cells.length === 0) return;
+            const rowData = Array.from(cells).map(c => (c.textContent || '').trim());
+            if (rowData.some(t => t.length > 0)) {
+                data.push(rowData);
+            }
+        });
+        return data;
+    });
+}
+
+async function scrapeAllRows(page) {
+    // Power BI virtualizes tables — only ~25 rows visible at a time.
+    // We scroll the table container to load all rows.
+    const allRows = new Map(); // key = first cell text to dedupe
+
+    // Get the grid container
+    const hasGrid = await page.evaluate(() => !!document.querySelector('[role="grid"]'));
+    if (!hasGrid) {
+        console.log('    ⚠️ No grid found on this page');
         return [];
     }
 
-    const parseValue = (val) => {
-        if (!val) return '';
-        let v = val[0] || val;
-        // PBI might return integer dict lookups, so we just take the raw string or rely on the fact that these are often raw strings if no V-dict is present
-        return typeof v === 'object' ? String(v.V || v) : String(v);
-    };
+    let previousSize = 0;
+    let scrollAttempts = 0;
+    const MAX_SCROLLS = 50; // safety limit
 
-    const results = {};
-    const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
+    while (scrollAttempts < MAX_SCROLLS) {
+        const visible = await scrapeVisibleRows(page);
 
-    for (const row of rows) {
-        let bevoegdGezag = "";
-        let soort = "";
-
-        // C logic handles cell data arrays
-        if (row.C && Array.isArray(row.C)) {
-            bevoegdGezag = typeof row.C[0] === 'string' ? row.C[0] : (row.C[0]?.V || '');
-            soort = typeof row.C[1] === 'string' ? row.C[1] : (row.C[1]?.V || '');
+        for (const row of visible) {
+            const key = row.join('|');
+            if (!allRows.has(key)) {
+                allRows.set(key, row);
+            }
         }
 
-        if (!bevoegdGezag || !bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
-        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
+        if (allRows.size === previousSize) {
+            scrollAttempts++;
+            if (scrollAttempts > 3) break; // no new data after 3 scrolls
+        } else {
+            scrollAttempts = 0;
+            previousSize = allRows.size;
+        }
 
+        // Scroll the grid container down
+        await page.evaluate(() => {
+            const grid = document.querySelector('[role="grid"]');
+            if (grid) {
+                grid.scrollTop += 500;
+            }
+            // Also try scrolling the scrollbar region
+            const scrollRegion = document.querySelector('.bodyCells, .scroll-region, .innerContainer');
+            if (scrollRegion) {
+                scrollRegion.scrollTop += 500;
+            }
+        });
+        await new Promise(r => setTimeout(r, 1500));
+    }
+
+    return Array.from(allRows.values());
+}
+
+// --- SCRAPERS PER PAGE ---
+
+function parseR1(rows) {
+    // R1 columns: Bevoegd gezag, Bestuurslaag, Citeertitel, Versie, Soort, Registratietijdstip, Geldig op, Inwerking op, AKN
+    // We want: { gemeente, soort (Omgevingsplan/Omgevingsvisie/etc) }
+    const results = {};
+
+    for (const row of rows) {
+        const bevoegdGezag = row[0] || '';
+        const soort = row[4] || ''; // Column index 4 = "Soort"
+
+        if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
+
+        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
+        if (!naam) continue;
+
+        // Determine regulation type priority: Omgevingsplan > Omgevingsvisie > Voorbeschermingsregels
+        const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
         const currentPriority = priority[soort] || 5;
         const existingPriority = results[naam]?.priority || 99;
 
@@ -91,151 +162,129 @@ async function fetchRegelingen() {
                 gemeente: naam,
                 regelingType: soort,
                 priority: currentPriority,
-                kpi4: String(currentPriority)
+                kpi4: String(currentPriority) // 1=best, 5=worst
             };
         }
     }
     return Object.values(results);
 }
 
-async function fetchBehandeldiensten() {
-    const payload = {
-        version: "1.0.0",
-        queries: [{
-            Query: {
-                Commands: [{
-                    SemanticQueryDataShapeCommand: {
-                        Query: {
-                            Version: 2,
-                            From: [{ Name: "i", Entity: "i3_behandeldiensten" }],
-                            Select: [
-                                { Column: { Expression: { SourceRef: { Source: "i" } }, Property: "Bevoegd gezag" }, Name: "gemeente" },
-                                { Column: { Expression: { SourceRef: { Source: "i" } }, Property: "Behandeldienst" }, Name: "behandeldienst" }
-                            ]
-                        }
-                    }
-                }]
-            },
-            QueryId: "",
-            ApplicationContext: {
-                DatasetId: "51c296fc-4353-4b12-bb38-2f39f84731da",
-                Sources: [{ ReportId: "c2c5dc44-7f12-4217-bf41-65b161c56ab4", VisualId: "3e593a1cf52bcbb1a986" }]
-            }
-        }],
-        cancelQueries: [],
-        modelId: 3009774
-    };
-
-    console.log("Fetching Behandeldiensten...");
-    const data = await executeQuery(payload);
-    const rows = data.results?.[0]?.result?.data?.dsr?.DS?.[0]?.PH?.[0]?.DM0;
-
-    if (!rows) {
-        console.warn("Could not extract Behandeldiensten data");
-        return [];
-    }
-
+function parseI3(rows) {
+    // I3 columns: id, Begindatum, Bevoegd gezag, Activiteit, Behandeldienst, Toestemming, Bevoegd gezag (locatie)
+    // We want: { gemeente, behandeldienst }
     const results = {};
-    for (const row of rows) {
-        let bevoegdGezag = "";
-        let behandeldienst = "";
 
-        if (row.C && Array.isArray(row.C)) {
-            bevoegdGezag = typeof row.C[0] === 'string' ? row.C[0] : (row.C[0]?.V || '');
-            behandeldienst = typeof row.C[1] === 'string' ? row.C[1] : (row.C[1]?.V || '');
-        }
+    for (const row of rows) {
+        const bevoegdGezag = row[2] || ''; // Column 2 = "Bevoegd gezag"
+        const behandeldienst = row[4] || ''; // Column 4 = "Behandeldienst"
 
         if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
-        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
 
-        if (!results[naam]) results[naam] = { gemeente: naam, behandeldiensten: {} };
-        if (behandeldienst) {
-            results[naam].behandeldiensten[behandeldienst] = (results[naam].behandeldiensten[behandeldienst] || 0) + 1;
+        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
+        if (!naam || !behandeldienst) continue;
+
+        // Store most common behandeldienst per gemeente
+        if (!results[naam]) {
+            results[naam] = { gemeente: naam, behandeldiensten: {} };
         }
+        results[naam].behandeldiensten[behandeldienst] = (results[naam].behandeldiensten[behandeldienst] || 0) + 1;
     }
 
-    return Object.entries(results).map(([naam, res]) => {
-        const sorted = Object.entries(res.behandeldiensten).sort((a, b) => b[1] - a[1]);
-        return { gemeente: naam, behandeldienst: sorted[0]?.[0] || '' };
+    return Object.entries(results).map(([naam, data]) => {
+        // Pick most common behandeldienst
+        const sorted = Object.entries(data.behandeldiensten).sort((a, b) => b[1] - a[1]);
+        return {
+            gemeente: naam,
+            behandeldienst: sorted[0]?.[0] || ''
+        };
     });
 }
 
-async function fetchToepasbaar() {
-    const payload = {
-        version: "1.0.0",
-        queries: [{
-            Query: {
-                Commands: [{
-                    SemanticQueryDataShapeCommand: {
-                        Query: {
-                            Version: 2,
-                            From: [{ Name: "t", Entity: "toepasbareregels" }],
-                            Select: [
-                                { Column: { Expression: { SourceRef: { Source: "t" } }, Property: "naam" }, Name: "bestuursorgaan" },
-                                { Column: { Expression: { SourceRef: { Source: "t" } }, Property: "leverancier" }, Name: "software" },
-                                { Column: { Expression: { SourceRef: { Source: "t" } }, Property: "laatsteWijzigingDatum" }, Name: "datum" }
-                            ]
-                        }
-                    }
-                }]
-            },
-            QueryId: "",
-            ApplicationContext: {
-                DatasetId: "51c296fc-4353-4b12-bb38-2f39f84731da",
-                Sources: [{ ReportId: "c2c5dc44-7f12-4217-bf41-65b161c56ab4", VisualId: "3e593a1cf52bcbb1a986" }]
-            }
-        }],
-        cancelQueries: [],
-        modelId: 3009774
-    };
-
-    console.log("Fetching Toepasbare Regels...");
-    const data = await executeQuery(payload);
-    const rows = data.results?.[0]?.result?.data?.dsr?.DS?.[0]?.PH?.[0]?.DM0;
-
-    if (!rows) {
-        console.warn("Could not extract Toepasbare Regels data");
-        return [];
-    }
-
+function parseT1(rows) {
+    // T1 columns: Bestuursorgaan, STTR ID, STTR versie, Wijzigingsdatum, Startdatum, Einddatum, Activiteit, Act. tot, Soort STTR, TR Software
+    // We want: { gemeente, aantalRegels, laatsteWijziging, trSoftware }
     const results = {};
-    for (const row of rows) {
-        let bestuursorgaan = "";
-        let software = "";
-        let wijziging = "";
 
-        if (row.C && Array.isArray(row.C)) {
-            bestuursorgaan = typeof row.C[0] === 'string' ? row.C[0] : (row.C[0]?.V || '');
-            software = typeof row.C[1] === 'string' ? row.C[1] : (row.C[1]?.V || '');
-            wijziging = typeof row.C[2] === 'number' ? new Date(row.C[2]).toISOString().split('T')[0] : (row.C[2]?.V || '');
-        }
+    for (const row of rows) {
+        const bestuursorgaan = row[0] || '';
+        const wijzigingsdatum = row[3] || '';
+        const activiteit = row[6] || '';
+        const trSoftware = row[9] || '';
 
         if (!bestuursorgaan.toLowerCase().startsWith('gemeente')) continue;
+
         const naam = bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
+        if (!naam) continue;
 
         if (!results[naam]) {
             results[naam] = { gemeente: naam, aantalRegels: 0, laatsteWijziging: '', trSoftware: '' };
         }
         results[naam].aantalRegels++;
 
-        if (software && !results[naam].trSoftware) results[naam].trSoftware = software;
-        if (wijziging && wijziging > results[naam].laatsteWijziging) results[naam].laatsteWijziging = wijziging;
+        // Track latest wijzigingsdatum
+        if (wijzigingsdatum > results[naam].laatsteWijziging) {
+            results[naam].laatsteWijziging = wijzigingsdatum;
+        }
+        if (trSoftware && !results[naam].trSoftware) {
+            results[naam].trSoftware = trSoftware;
+        }
     }
     return Object.values(results);
 }
 
 // --- MAIN ---
+
 (async () => {
-    console.log('🚀 Starting Power BI Sync via Native API...');
+    console.log('🚀 Starting Power BI Sync V2...');
+    const browser = await puppeteer.launch({
+        headless: "new",
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1400, height: 900 });
 
     try {
-        const [regelingen, behandeldiensten, toepasbaar] = await Promise.all([
-            fetchRegelingen(),
-            fetchBehandeldiensten(),
-            fetchToepasbaar()
-        ]);
+        console.log('📄 Loading Power BI Report...');
+        await page.goto(POWER_BI_URL, { waitUntil: 'networkidle2', timeout: 90000 });
+        await waitForPBI(page);
+        console.log('✅ Dashboard loaded.');
 
+        // =====================
+        // SCRAPE R1: Regelingen
+        // =====================
+        console.log('\n📊 [R1] Scraping Regelingen...');
+        await navigateToPage(page, 'R1.');
+        const r1Rows = await scrapeAllRows(page);
+        console.log(`   Found ${r1Rows.length} raw rows`);
+        const regelingen = parseR1(r1Rows);
+        console.log(`   Parsed ${regelingen.length} gemeenten`);
+
+        // =====================
+        // SCRAPE I3: Behandeldiensten
+        // =====================
+        console.log('\n📊 [I3] Scraping Behandeldiensten...');
+        await navigateToPage(page, 'I3.');
+        const i3Rows = await scrapeAllRows(page);
+        console.log(`   Found ${i3Rows.length} raw rows`);
+        const behandeldiensten = parseI3(i3Rows);
+        console.log(`   Parsed ${behandeldiensten.length} gemeenten`);
+
+        // =====================
+        // SCRAPE T1: Toepasbare regels
+        // =====================
+        console.log('\n📊 [T1] Scraping Toepasbare regels...');
+        await navigateToPage(page, 'T1.');
+        const t1Rows = await scrapeAllRows(page);
+        console.log(`   Found ${t1Rows.length} raw rows`);
+        const toepasbaar = parseT1(t1Rows);
+        console.log(`   Parsed ${toepasbaar.length} gemeenten`);
+
+        // =====================
+        // MERGE & PUSH
+        // =====================
         console.log('\n☁️ Merging and syncing to Google Sheet...');
+
+        // Build a combined lookup by gemeente
         const merged = {};
 
         for (const r of regelingen) {
@@ -269,6 +318,7 @@ async function fetchToepasbaar() {
                 aantalRegels: String(record.aantalRegels || ''),
                 laatsteWijziging: record.laatsteWijziging || '',
                 trSoftware: record.trSoftware || '',
+                // Placeholders for KPIs we don't scrape yet
                 kpi1: '',
                 kpi2: '',
                 kpi3: ''
@@ -294,6 +344,7 @@ async function fetchToepasbaar() {
 
     } catch (err) {
         console.error('❌ Error during sync:', err);
-        process.exit(1);
+    } finally {
+        await browser.close();
     }
 })();
