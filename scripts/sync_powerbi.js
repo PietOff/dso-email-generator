@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer';
+import fs from 'fs';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxSBxwydzP5DZbpd4mI-LK3GPlMwVsTXpMOSnUWqtTXJdbFAMhnwOHubehOF_X67XE3/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
@@ -75,6 +76,10 @@ async function navigateToPage(page, pageName) {
 
         // Take a screenshot right after waiting to see if it navigated
         await page.screenshot({ path: `debug_after_${pageName.replace(/[^a-z0-9]/gi, '')}.png` });
+
+        // Dump the HTML DOM for diagnostics
+        const htmlContent = await page.content();
+        fs.writeFileSync(`debug_dom_${pageName.replace(/[^a-z0-9]/gi, '')}.html`, htmlContent);
     } else {
         console.log(`  ⚠️ Could not find page "${pageName}"`);
     }
