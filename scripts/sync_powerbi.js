@@ -15,30 +15,46 @@ async function navigateToPage(page, pageName) {
     console.log(`  📄 Navigating to "${pageName}"...`);
 
     const coords = await page.evaluate((target) => {
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
-        let node;
+        const selectors = [
+            'button', '[role="button"]', '[role="tab"]',
+            '[role="link"]', '[role="listitem"]', '.sectionItem',
+            'a'
+        ];
+
         let bestMatch = null;
         let maxArea = 0;
 
-        while ((node = walker.nextNode())) {
-            if (node.nodeValue.trim() === target || node.nodeValue.trim().startsWith(target)) {
-                let el = node.parentElement;
-                while (el && el !== document.body) {
+        for (const selector of selectors) {
+            const elements = Array.from(document.querySelectorAll(selector));
+            for (const el of elements) {
+                if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
                     const rect = el.getBoundingClientRect();
                     const style = window.getComputedStyle(el);
 
                     if (rect.width > 5 && rect.height > 5 && style.opacity !== '0' && style.visibility !== 'hidden' && rect.x > 0 && rect.y > 0) {
                         const area = rect.width * rect.height;
-                        // Prioritize larger clickable areas (actual buttons vs tiny text legends)
                         if (area > maxArea) {
                             maxArea = area;
                             bestMatch = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
                         }
                     }
-                    el = el.parentElement;
                 }
             }
         }
+
+        // Fallback: If no interactive elements found, check all divs as a last resort
+        if (!bestMatch) {
+            const allDivs = Array.from(document.querySelectorAll('div'));
+            for (const el of allDivs) {
+                if (el.textContent.trim() === target || el.textContent.trim().startsWith(target)) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width > 5 && rect.height > 5 && rect.width < 500 && rect.height < 100 && rect.x > 0 && rect.y > 0) {
+                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                    }
+                }
+            }
+        }
+
         return bestMatch;
     }, pageName);
 
