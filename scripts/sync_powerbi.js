@@ -237,13 +237,41 @@ async function navigateToPage(page, pageName, captured) {
 // --- PARSERS (unchanged from original) ---
 
 function parseR1(rows) {
+    // R1 API columns (discovered via V3 network dump):
+    // [0] AKN ID (e.g. "/akn/nl/act/gm0301/2024/omgevingsvisie")
+    // [1] Bevoegd gezag (e.g. "gemeente Zutphen")
+    // [2] Type (e.g. "Gemeente")
+    // [3..7] timestamps/numbers
+    // [8..13] various metadata
+    //
+    // Extract the soort (Omgevingsplan/Omgevingsvisie) from the AKN URL
     const results = {};
     for (const row of rows) {
-        const bevoegdGezag = row[0] || '';
-        const soort = row[4] || '';
+        const aknUrl = row[0] || '';
+        const bevoegdGezag = row[1] || '';
         if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
+
+        // Extract soort from AKN URL: last segment before any version
+        // e.g. "/akn/nl/act/gm0301/2024/omgevingsvisie" → "omgevingsvisie"
+        let soort = '';
+        const aknParts = aknUrl.split('/').filter(Boolean);
+        const lastPart = aknParts[aknParts.length - 1] || '';
+        if (lastPart.includes('omgevingsplan')) soort = 'Omgevingsplan';
+        else if (lastPart.includes('omgevingsvisie')) soort = 'Omgevingsvisie';
+        else if (lastPart.includes('voorbeschermingsregel')) soort = 'Voorbeschermingsregels';
+        else if (lastPart.includes('voorbereidingsbesluit')) soort = 'Voorbereidingsbesluit';
+        else {
+            // Also check all columns for known text
+            for (const cell of row) {
+                if (cell === 'Omgevingsplan' || cell === 'Omgevingsvisie' || cell === 'Voorbeschermingsregels' || cell === 'Voorbereidingsbesluit') {
+                    soort = cell;
+                    break;
+                }
+            }
+        }
+
         const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
         const currentPriority = priority[soort] || 5;
         const existingPriority = results[naam]?.priority || 99;
