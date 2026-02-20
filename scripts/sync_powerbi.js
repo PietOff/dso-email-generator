@@ -15,25 +15,31 @@ async function navigateToPage(page, pageName) {
     console.log(`  📄 Navigating to "${pageName}"...`);
 
     const coords = await page.evaluate((target) => {
-        // Find text node matching target
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
         let node;
-        while (node = walker.nextNode()) {
+        let bestMatch = null;
+        let maxArea = 0;
+
+        while ((node = walker.nextNode())) {
             if (node.nodeValue.trim() === target || node.nodeValue.trim().startsWith(target)) {
-                // Find clickable parent to get proper bounding box
                 let el = node.parentElement;
                 while (el && el !== document.body) {
                     const rect = el.getBoundingClientRect();
                     const style = window.getComputedStyle(el);
-                    // Needs to be physically rendered on screen and visible
+
                     if (rect.width > 5 && rect.height > 5 && style.opacity !== '0' && style.visibility !== 'hidden' && rect.x > 0 && rect.y > 0) {
-                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                        const area = rect.width * rect.height;
+                        // Prioritize larger clickable areas (actual buttons vs tiny text legends)
+                        if (area > maxArea) {
+                            maxArea = area;
+                            bestMatch = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
+                        }
                     }
                     el = el.parentElement;
                 }
             }
         }
-        return null;
+        return bestMatch;
     }, pageName);
 
     if (coords) {
