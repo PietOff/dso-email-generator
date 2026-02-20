@@ -54,6 +54,7 @@ async function scrapeVisibleRows(page) {
             const cells = row.querySelectorAll('[role="gridcell"], [role="columnheader"], [role="rowheader"]');
             if (cells.length === 0) return;
             const rowData = Array.from(cells).map(c => (c.textContent || '').trim());
+            // Only push if there's actual text content
             if (rowData.some(t => t.length > 0)) {
                 data.push(rowData);
             }
@@ -63,6 +64,9 @@ async function scrapeVisibleRows(page) {
 }
 
 async function scrapeAllRows(page) {
+    // Wait explicitly for the grid and actual gridcells (data rows) to appear
+    await page.waitForSelector('[role="gridcell"]', { timeout: 45000 }).catch(() => console.log('    ⚠️ Timed out waiting for data cells.'));
+
     // Power BI virtualizes tables — only ~25 rows visible at a time.
     // We scroll the table container to load all rows.
     const allRows = new Map(); // key = first cell text to dedupe
@@ -80,6 +84,11 @@ async function scrapeAllRows(page) {
 
     while (scrollAttempts < MAX_SCROLLS) {
         const visible = await scrapeVisibleRows(page);
+
+        if (allRows.size === 0 && visible.length > 0) {
+            console.log('    👀 Sample Row 0:', JSON.stringify(visible[0]));
+            if (visible.length > 1) console.log('    👀 Sample Row 1:', JSON.stringify(visible[1]));
+        }
 
         for (const row of visible) {
             const key = row.join('|');
