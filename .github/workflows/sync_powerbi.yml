@@ -2,9 +2,9 @@ name: Sync Power BI Data
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Runs at 08:00 AM UTC
-  workflow_dispatch:      # Manual trigger
-  repository_dispatch:    # API trigger from Vercel
+    - cron: "0 8 * * *" # Runs at 08:00 AM UTC
+  workflow_dispatch: # Manual trigger
+  repository_dispatch: # API trigger from Vercel
     types: [sync-powerbi]
 
 jobs:
@@ -17,13 +17,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
 
       - name: Run Sync Script
         run: npm run sync
+        continue-on-error: true
         env:
           CI: true
+
+      - name: Upload Debug Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: debug-screenshots
+          path: debug_*.png

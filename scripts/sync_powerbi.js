@@ -24,9 +24,10 @@ async function navigateToPage(page, pageName) {
                 let el = node.parentElement;
                 while (el && el !== document.body) {
                     const rect = el.getBoundingClientRect();
-                    // Needs to be physically rendered on screen
-                    if (rect.width > 5 && rect.height > 5) {
-                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+                    const style = window.getComputedStyle(el);
+                    // Needs to be physically rendered on screen and visible
+                    if (rect.width > 5 && rect.height > 5 && style.opacity !== '0' && style.visibility !== 'hidden' && rect.x > 0 && rect.y > 0) {
+                        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, width: rect.width, height: rect.height };
                     }
                     el = el.parentElement;
                 }
@@ -36,9 +37,22 @@ async function navigateToPage(page, pageName) {
     }, pageName);
 
     if (coords) {
-        console.log(`  ✅ Mouse clicking screen coordinates: x=${coords.x}, y=${coords.y}`);
-        await page.mouse.click(coords.x, coords.y, { delay: 100 });
+        console.log(`  ✅ Mouse clicking screen coordinates: x=${Math.round(coords.x)}, y=${Math.round(coords.y)} (Element size: ${Math.round(coords.width)}x${Math.round(coords.height)})`);
+
+        // Take a screenshot right before clicking to see what we are targeting
+        await page.screenshot({ path: `debug_before_${pageName.replace(/[^a-z0-9]/gi, '')}.png` });
+
+        // Move mouse to center, then slightly offset to click natural button space
+        await page.mouse.move(coords.x, coords.y);
+        await new Promise(r => setTimeout(r, 200));
+        await page.mouse.down();
+        await new Promise(r => setTimeout(r, 100));
+        await page.mouse.up();
+
         await new Promise(r => setTimeout(r, 8000)); // wait for page to load
+
+        // Take a screenshot right after waiting to see if it navigated
+        await page.screenshot({ path: `debug_after_${pageName.replace(/[^a-z0-9]/gi, '')}.png` });
     } else {
         console.log(`  ⚠️ Could not find page "${pageName}"`);
     }
