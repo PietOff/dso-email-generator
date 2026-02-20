@@ -12,7 +12,7 @@ function setupSheet() {
   sheet1.clear();
   var algemeenData = [
     ["Veld", "Waarde", "Opmerkingen"],
-    ["standaard_verhaal", "De DSO-lijst geeft inzicht in de voortgang van de implementatie van het Digitaal Stelsel Omgevingswet (DSO). We monitoren hierbij de scores op het gebied van dierlijke mest, regelanalist, OLO-activiteiten en het omgevingsplan.", "Basis intro tekst voor elke email"],
+    ["standaard_verhaal", "Vanuit AbelTalent en onze partner Tafelberg Advies werken we dagelijks samen met gemeenten aan de Omgevingswet — van regelanalyse en vragenbomen tot capaciteitsvraagstukken. We kennen de uitdagingen, en helpen daar graag bij.", "Basis intro tekst voor elke email"],
     ["bedrijf_naam", "abelTalent", ""],
     ["bedrijf_adres", "Kosterijland 70, 3981 AJ Bunnik", ""],
     ["bedrijf_telefoon", "+31 30 225 5660", ""],
@@ -83,10 +83,10 @@ function setupSheet() {
   var sheet4 = ss.insertSheet("CTAs");
   var ctaData = [
     ["doel", "tekst_professioneel", "tekst_informeel", "opmerkingen"],
-    ["eerste-contact", "Ik kom graag een keer langs of plan een kort kennismakingsgesprek in om de mogelijkheden te bespreken. Wat past u het beste?", "Zullen we een keer (kort) bellen of koffiedrinken om de mogelijkheden te bespreken? Ik hoor het graag.", "Default CTA"],
-    ["follow-up", "Graag zou ik een vervolggesprek plannen om bovenstaande bevindingen nader te bespreken. Heeft u komende weken beschikbaarheid?", "Ik zou graag een vervolggesprek plannen om bovenstaande punten te bespreken. Heb je komende week beschikbaarheid?", "Na eerder contact"],
-    ["quickscan", "Wij bieden u graag een kosteloze Quick Scan Toepasbare Regels aan: een beknopte analyse van uw DSO-gereedheid, inclusief concrete aanbevelingen. Heeft u hier interesse in?", "We bieden een gratis Quick Scan Toepasbare Regels aan — een korte analyse van jullie DSO-gereedheid met concrete aanbevelingen. Lijkt je dat wat?", "Gratis quickscan"],
-    ["workshop", "Binnenkort organiseren wij een praktijkgerichte workshop over de Omgevingswet, gericht op 'basis op orde' naar 'data op orde'. Zal ik u de details toesturen?", "We organiseren binnenkort een praktijkgerichte workshop over de Omgevingswet. Leuk als je erbij bent! Zal ik je de details sturen?", "Workshop uitnodiging"]
+    ["eerste-contact", "Heeft u interesse om eens vrijblijvend van gedachten te wisselen? Ik hoor het graag.", "Zou je het leuk vinden om eens vrijblijvend te sparren? Ik hoor het graag.", "Default CTA"],
+    ["follow-up", "Graag zou ik een vervolggesprek plannen om bovenstaande nader te bespreken. Heeft u komende weken beschikbaarheid?", "Zullen we binnenkort even bellen om dit door te spreken? Ik hoor het graag.", "Na eerder contact"],
+    ["quickscan", "Wij bieden u graag een kosteloze Quick Scan Toepasbare Regels aan: een beknopte analyse met concrete aanbevelingen. Heeft u hier interesse in?", "We bieden een gratis Quick Scan Toepasbare Regels aan — een korte analyse met concrete aanbevelingen. Lijkt je dat wat?", "Gratis quickscan"],
+    ["workshop", "Binnenkort organiseren wij een praktijkgerichte workshop over de Omgevingswet. Zal ik u de details toesturen?", "We organiseren binnenkort een praktijkgerichte workshop over de Omgevingswet. Leuk als je erbij bent! Zal ik je de details sturen?", "Workshop uitnodiging"]
   ];
   sheet4.getRange(1, 1, ctaData.length, 4).setValues(ctaData);
   sheet4.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#ea4335").setFontColor("white");
@@ -95,7 +95,52 @@ function setupSheet() {
   sheet4.setColumnWidth(3, 400);
   sheet4.setColumnWidth(4, 200);
   
+  // === SHEET 5: Email Teksten === (NEW — all email template text, editable from here)
+  var sheet5 = ss.insertSheet("Email Teksten");
+  var emailData = [
+    ["key", "tekst_professioneel", "tekst_informeel", "opmerkingen"],
+
+    // --- Openings ---
+    ["opening_eerste_contact", "Als organisatie die dagelijks gemeenten ondersteunt bij de Omgevingswet neem ik graag even contact met u op.", "We werken veel met gemeenten die op dit moment volop bezig zijn met de Omgevingswet, en dan kwam ik jullie tegen. Even een kort berichtje.", "Eerste contact opening"],
+    ["opening_follow_up", "Naar aanleiding van ons eerdere contact wil ik graag even bij u aansluiten.", "Fijn dat we eerder even contact hadden. Ik wilde graag even aanhaken.", "Follow-up opening"],
+    ["opening_urgent", "De Omgevingswet is inmiddels een feit en ik merk dat veel gemeenten nu tegen dezelfde uitdagingen aanlopen. Vandaar dat ik even contact opneem.", "De Omgevingswet is inmiddels een feit en veel gemeenten lopen tegen dezelfde dingen aan. Vandaar dat ik even een berichtje stuur.", "Urgente toon opening"],
+    
+    // --- Situatie observaties (per regelingType) ---
+    ["situatie_omgevingsplan", "Het valt op dat {gemeente} al een definitief Omgevingsplan heeft gepubliceerd — een belangrijke mijlpaal die nog niet voor alle gemeenten bereikt is.", "Mooi om te zien dat jullie al een definitief Omgevingsplan hebben. Dat is een flinke mijlpaal waar veel gemeenten nog naartoe werken.", "Positief: heeft al omgevingsplan"],
+    ["situatie_omgevingsvisie", "{gemeente} heeft al stappen gezet met de Omgevingsvisie. De transitie naar een volledig Omgevingsplan is vaak een intensief traject waar veel gemeenten tegenaan lopen.", "Jullie werken op dit moment met de Omgevingsvisie, en de volgende stap — het daadwerkelijke Omgevingsplan — is voor veel gemeenten een behoorlijke klus.", "Heeft omgevingsvisie, mist omgevingsplan"],
+    ["situatie_voorbescherming", "{gemeente} werkt op dit moment met {type}. Dit is een fase die we bij veel gemeenten herkennen. De transitie naar het Omgevingsplan vraagt de komende tijd flink wat capaciteit.", "Jullie werken op dit moment met {type}, wat begrijpelijk is — veel gemeenten zitten in dezelfde fase. De stap naar een volledig Omgevingsplan is dan ook een flinke.", "Voorbeschermingsregels / Voorbereidingsbesluit"],
+    
+    // --- Toepasbare regels observaties ---
+    ["tr_weinig", "Daarnaast zien we dat het digitale Omgevingsloket nog relatief beperkt is ingericht qua vragenbomen. Dat is een uitdaging die bij veel gemeenten speelt.", "Daarnaast merken we dat het Omgevingsloket qua vragenbomen nog vrij beperkt is ingericht — iets waar veel gemeenten mee worstelen.", "< 20 toepasbare regels"],
+    ["tr_veel", "Er is al een stevig pakket aan vragenbomen ingericht{software}, maar het beheer en de doorontwikkeling hiervan vraagt doorgaans om continue aandacht.", "Jullie hebben al een aardig pakket aan vragenbomen staan{software}, maar het bijhouden en uitbreiden daarvan is natuurlijk een doorlopend verhaal.", "> 20 toepasbare regels. {software} wordt vervangen door ' via [naam]' als bekend"],
+    ["tr_alleen_weinig", "De inrichting van het digitale Omgevingsloket — en het vertalen van regelgeving naar vragenbomen — is een uitdaging die bij veel gemeenten speelt.", "We merken dat veel gemeenten nog zoekende zijn in de inrichting van het digitale Omgevingsloket. Het opzetten van goede vragenbomen is simpelweg een vak apart.", "< 20 TR, geen regelingType bekend"],
+    ["tr_alleen_veel", "{gemeente} heeft al een solide basis qua vragenbomen ingericht{software}. Uit onze ervaring weten we dat het beheer en de doorontwikkeling daarvan een doorlopend traject is.", "Jullie hebben al een stevige basis staan qua vragenbomen{software}. Maar we weten uit ervaring: het bijhouden en verbeteren is een doorlopend verhaal.", "> 20 TR, geen regelingType bekend"],
+    
+    // --- Service bridge ---
+    ["service_bridge", "Op dit terrein ondersteunen wij gemeenten dagelijks. Denk aan de inzet van een ervaren Regelanalist voor het vertalen van beleid naar vragenbomen, of strategische begeleiding bij de verdere inrichting van het Omgevingsplan.", "Dat is precies waar wij gemeenten mee helpen. Of het nu gaat om een ervaren Regelanalist die jullie regels vertaalt naar vragenbomen, of strategisch advies bij het inrichten van het Omgevingsplan — we spreken elke dag dezelfde taal.", "Overgang naar diensten"],
+    ["service_bridge_behandeldienst", "Gezien de samenwerking met {behandeldienst} kunnen wij ook de afstemming in de keten faciliteren.", "Overigens werken jullie samen met {behandeldienst}, toch? We hebben daar goede ervaringen mee, wat de samenwerking extra soepel maakt.", "Toevoeging als behandeldienst bekend is"],
+    
+    // --- KPI context prefixes ---
+    ["kpi_goed_prefix", "Het valt positief op dat ", "Overigens, mooi dat ", "Prefix voor goede KPI punten"],
+    ["kpi_dienst_prefix", "Ter ondersteuning: ", "Als dat helpt: ", "Prefix voor dienstaanbod"],
+    
+    // --- Email 2: Nudge ---
+    ["email2_body", "Graag volg ik even op naar aanleiding van mijn vorige bericht. Ik begrijp dat de agenda's vol zijn — dat herkennen wij bij veel gemeenten.\n\nDesondanks denk ik dat wij {gemeente} concreet kunnen ondersteunen bij de lopende trajecten rondom de Omgevingswet.\n\nZou u deze week gelegenheid hebben voor een kort gesprek? Ik licht graag toe wat we voor u kunnen betekenen.", "Even een kort opvolgberichtje. Ik snap dat het druk is — dat horen we van veel gemeenten op dit moment.\n\nToch denk ik dat we {gemeente} echt iets kunnen bieden dat tijd en moeite bespaart. Zeker nu er voor veel gemeenten nog flink wat werk te verzetten is rondom de Omgevingswet.\n\nHeb je toevallig deze week een kwartiertje? Ik vertel je graag in het kort wat we voor jullie kunnen betekenen.", "Volledige email 2 body. {gemeente} wordt vervangen"],
+    
+    // --- Email 3: Close ---
+    ["email3_body", "Ik begrijp dat het moment wellicht niet past. Ik zal u voor nu niet verder benaderen.\n\nWel deel ik graag nog een praktische gids die we voor gemeenten hebben samengesteld over het efficiënt inrichten van toepasbare regels. Mogelijk is dit van waarde voor u of uw collega's.\n\n👉 [Link naar de gids]\n\nMocht u in de toekomst behoefte hebben aan ondersteuning, dan vernemen wij dat uiteraard graag.\n\nVeel succes met het vervolg.", "Ik wil je niet onnodig blijven mailen, dus ik laat het hierbij voor nu.\n\nWel wilde ik nog even meegeven: we hebben onlangs een praktische gids gemaakt voor gemeenten over het efficiënt inrichten van toepasbare regels. Misschien handig voor jullie of je collega's.\n\n👉 [Link naar de gids]\n\nMocht je later alsnog willen sparren, dan staan we altijd open. Succes met alles!", "Volledige email 3 body"],
+    
+    // --- Fallback base story ---
+    ["fallback_base_story", "We helpen gemeenten met de stappen rondom de Omgevingswet — van regelanalyse tot het inrichten van het Omgevingsloket.", "We helpen gemeenten met de stappen rondom de Omgevingswet — van regelanalyse tot het inrichten van het Omgevingsloket.", "Gebruikt als geen baseStory is ingevuld"]
+  ];
+  sheet5.getRange(1, 1, emailData.length, 4).setValues(emailData);
+  sheet5.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#9c27b0").setFontColor("white");
+  sheet5.setColumnWidth(1, 220);
+  sheet5.setColumnWidth(2, 500);
+  sheet5.setColumnWidth(3, 500);
+  sheet5.setColumnWidth(4, 250);
+  
   SpreadsheetApp.flush();
-  Logger.log("✅ Sheet setup complete! Alle 4 tabbladen zijn aangemaakt en gevuld.");
-  SpreadsheetApp.getUi().alert("✅ Setup voltooid!\n\nAlle 4 tabbladen zijn aangemaakt:\n- Algemeen\n- Score Teksten\n- Functie Teksten\n- CTAs\n\nVergeet niet om de sheet te publiceren via Bestand > Delen > Publiceren op het web");
+  Logger.log("✅ Sheet setup complete! Alle 5 tabbladen zijn aangemaakt en gevuld.");
+  SpreadsheetApp.getUi().alert("✅ Setup voltooid!\n\nAlle 5 tabbladen zijn aangemaakt:\n- Algemeen\n- Score Teksten\n- Functie Teksten\n- CTAs\n- Email Teksten\n\nVergeet niet om de sheet te publiceren via Bestand > Delen > Publiceren op het web");
 }

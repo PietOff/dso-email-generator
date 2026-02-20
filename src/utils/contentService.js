@@ -51,17 +51,19 @@ export async function fetchContent() {
     }
 
     try {
-        const [algemeenRes, scoreRes, functieRes, ctaRes] = await Promise.all([
+        const [algemeenRes, scoreRes, functieRes, ctaRes, emailRes] = await Promise.all([
             fetch(sheetUrl('Algemeen')).then(r => r.text()),
             fetch(sheetUrl('Score Teksten')).then(r => r.text()),
             fetch(sheetUrl('Functie Teksten')).then(r => r.text()),
             fetch(sheetUrl('CTAs')).then(r => r.text()),
+            fetch(sheetUrl('Email Teksten')).then(r => r.text()).catch(() => null),
         ]);
 
         const algemeenRows = parseGoogleJson(algemeenRes);
         const scoreRows = parseGoogleJson(scoreRes);
         const functieRows = parseGoogleJson(functieRes);
         const ctaRows = parseGoogleJson(ctaRes);
+        const emailRows = emailRes ? parseGoogleJson(emailRes) : [];
 
         const algemeen = {};
         algemeenRows.forEach(row => {
@@ -109,7 +111,20 @@ export async function fetchContent() {
             }
         });
 
-        contentCache = { algemeen, scoreTeksten, functieTeksten, ctas };
+        // Parse Email Teksten tab: key → { professioneel, informeel }
+        const emailTeksten = {};
+        emailRows.forEach(row => {
+            const key = row['key'] || '';
+            if (key) {
+                emailTeksten[key] = {
+                    professioneel: row['tekst_professioneel'] || '',
+                    informeel: row['tekst_informeel'] || '',
+                    opmerkingen: row['opmerkingen'] || '',
+                };
+            }
+        });
+
+        contentCache = { algemeen, scoreTeksten, functieTeksten, ctas, emailTeksten };
         cacheTimestamp = Date.now();
         return contentCache;
     } catch (err) {
