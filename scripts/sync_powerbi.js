@@ -10,7 +10,10 @@ async function executeQuery(payload) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-PowerBI-ResourceKey': RESOURCE_KEY
+            'X-PowerBI-ResourceKey': RESOURCE_KEY,
+            'Origin': 'https://app.powerbi.com',
+            'Referer': 'https://app.powerbi.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Safari/537.36'
         },
         body: JSON.stringify(payload)
     });
