@@ -15,6 +15,26 @@
 /**
  * Generate a personalized email
  */
+
+/**
+ * Split single-line text into paragraphs at natural break points.
+ * Sheet data may not have line breaks if entered without Ctrl+Enter.
+ * This adds \n\n after every ~2 sentences to create readable paragraphs.
+ */
+function addParagraphBreaks(text) {
+    if (!text || text.includes('\n')) return text;
+    // Split on sentence endings (. followed by space and a capital letter)
+    const sentences = text.split(/(?<=\.\s)(?=[A-Z])/);
+    if (sentences.length <= 2) return text; // Short text, no need to break
+
+    const paragraphs = [];
+    for (let i = 0; i < sentences.length; i += 2) {
+        const chunk = sentences.slice(i, i + 2).join('');
+        paragraphs.push(chunk.trim());
+    }
+    return paragraphs.join('\n\n');
+}
+
 export const generateEmail = (baseStory, figures, options, selectedData, selectedContact, content, smartContext = '', monitorEnriched = null) => {
     if (!selectedData) return { email1: '', email2: '', email3: '' };
 
@@ -188,7 +208,9 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
 
     // --- CTA (from sheet CTAs) ---
     const getCTA = () => {
-        const ctaData = ctas[options.doel];
+        // Try exact match first, then fallback aliases (sheet may use 'kennismaking' instead of 'eerste-contact')
+        const aliases = { 'eerste-contact': 'kennismaking', 'kennismaking': 'eerste-contact' };
+        const ctaData = ctas[options.doel] || ctas[aliases[options.doel]] || null;
         if (ctaData) {
             const text = isInformeel ? ctaData.informeel : ctaData.professioneel;
             return text || (isInformeel ? "Zullen we bellen?" : "Graag kom ik met u in contact.");
@@ -240,9 +262,13 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
     // === Email 2: Nudge (full body from sheet) ===
     const generateEmail2 = () => {
         const greeting = getGreeting();
-        const body = txt('email2_body', isInformeel
+        let body = txt('email2_body', isInformeel
             ? `Even een kort opvolgberichtje. Ik snap dat het druk is.\n\nToch denk ik dat we ${gemeenteNaam} echt iets kunnen bieden. Heb je deze week een kwartiertje?`
             : `Graag volg ik even op. Ik begrijp dat de agenda's vol zijn.\n\nDesondanks denk ik dat wij ${gemeenteNaam} concreet kunnen ondersteunen.\n\nZou u deze week gelegenheid hebben voor een kort gesprek?`);
+        // If sheet text has no paragraph breaks, add them at sentence boundaries
+        if (!body.includes('\n')) {
+            body = addParagraphBreaks(body);
+        }
 
         const signature = getSignature();
         return `${greeting}\n\n${body}\n\n${signature}`;
@@ -251,9 +277,12 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
     // === Email 3: Close (full body from sheet) ===
     const generateEmail3 = () => {
         const greeting = getGreeting();
-        const body = txt('email3_body', isInformeel
+        let body = txt('email3_body', isInformeel
             ? `Ik laat het hierbij voor nu. Mocht je later alsnog willen sparren, dan staan we altijd open. Succes!`
             : `Ik zal u voor nu niet verder benaderen. Mocht u in de toekomst ondersteuning wensen, dan vernemen wij dat graag.`);
+        if (!body.includes('\n')) {
+            body = addParagraphBreaks(body);
+        }
 
         const signature = getSignature();
         return `${greeting}\n\n${body}\n\n${signature}`;

@@ -201,12 +201,13 @@ export async function fetchMonitorData() {
         const text = await res.text();
         const rows = parseGoogleJson(text);
 
-        // Convert to look-up object by Gemeente (lowercase)
+        // Convert to look-up object by Gemeente (lowercase, without 'Gemeente ' prefix)
         const data = {};
         rows.forEach(row => {
             const naam = row['Gemeente'] || '';
             if (naam) {
-                data[naam.toLowerCase()] = {
+                const cleanName = naam.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+                data[cleanName] = {
                     kpi1: row['KPI1_Mest'] || '',
                     kpi2: row['KPI2_Regelanalist'] || '',
                     kpi3: row['KPI3_OLO'] || '',

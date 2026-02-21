@@ -166,8 +166,9 @@ function App() {
     }
 
     // OVERRIDE with Monitor Data if available (Power BI data synced via Action)
-    if (monitorData && monitorData[name.toLowerCase()]) {
-      const m = monitorData[name.toLowerCase()];
+    const cleanName = name.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+    if (monitorData && monitorData[cleanName]) {
+      const m = monitorData[cleanName];
       console.log('Using Monitor Data for', name, m);
       if (m.kpi1) newFigures.kpi1 = m.kpi1;
       if (m.kpi2) newFigures.kpi2 = m.kpi2;
@@ -208,7 +209,8 @@ function App() {
   };
 
   const generate = () => {
-    const enriched = monitorData && selectedGemeente ? monitorData[selectedGemeente.toLowerCase()] : null;
+    const enrichedName = selectedGemeente ? selectedGemeente.replace(/^gemeente\s+/i, '').trim().toLowerCase() : '';
+    const enriched = monitorData && enrichedName ? monitorData[enrichedName] : null;
     const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
     setGeneratedEmails(output);
     setActiveTab('email1');
@@ -338,7 +340,8 @@ function App() {
                 </h3>
 
                 {(() => {
-                  const m = monitorData[selectedGemeente.toLowerCase()];
+                  const cleanSelected = selectedGemeente.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+                  const m = monitorData[cleanSelected];
                   if (!m) return (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
                       <span className="text-4xl block mb-3">📭</span>
