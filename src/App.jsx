@@ -352,43 +352,69 @@ function App() {
 
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Regeling & Beleid */}
                       <div className="bg-indigo-50/50 p-5 rounded-xl border border-indigo-100">
                         <span className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1 block">Regeling & Beleid</span>
                         <div className="text-lg font-medium text-slate-800">{m.regelingType || 'Niet bekend'}</div>
                         <div className="text-sm text-slate-500 mt-2">Actuele status van het Omgevingsplan volgens het DSO.</div>
                       </div>
 
+                      {/* Toepasbare Regels */}
                       <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100">
                         <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1 block">Toepasbare Regels</span>
                         <div className="text-lg font-medium text-slate-800">{m.aantalRegels ? `${m.aantalRegels} vragenbomen` : '0 regels'}</div>
                         {m.trSoftware && <div className="text-sm text-slate-500 mt-2">Software: <strong>{m.trSoftware}</strong></div>}
-                        {m.laatsteWijziging && <div className="text-xs text-slate-400 mt-1">Laatste wijziging: {m.laatsteWijziging}</div>}
+                        {m.laatsteWijziging && <div className="text-xs text-slate-400 mt-1">Laatste wijziging: {(() => {
+                          const ts = Number(m.laatsteWijziging);
+                          if (ts > 1000000000000) {
+                            return new Date(ts).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+                          }
+                          return m.laatsteWijziging;
+                        })()}</div>}
                       </div>
 
+                      {/* Behandeldienst */}
                       <div className="bg-amber-50/50 p-5 rounded-xl border border-amber-100 md:col-span-2">
                         <span className="text-xs font-bold text-amber-600 uppercase tracking-wider mb-1 block">Uitvoering & Behandeling</span>
                         <div className="text-lg font-medium text-slate-800">{m.behandeldienst || 'Geen gekoppelde omgevingsdienst'}</div>
                         <div className="text-sm text-slate-500 mt-2">Deze behandeldienst is in het DSO ingesteld voor het afhandelen van vergunningsaanvragen.</div>
                       </div>
 
-                      {/* Additional Info from internal Sheet */}
+                      {/* KPI Overzicht */}
                       <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 md:col-span-2 mt-4">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">Interne KPIs (Uit Google Sheet)</span>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <div>
-                            <div className="text-xs text-slate-500">Dierlijke Mest</div>
-                            <div className="font-medium">{figures.kpi1 || '-'}</div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 block">KPI Scores</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI1: Dierlijke Mest</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi1 || '-'}</div>
                           </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Omgevingsloket Score</div>
-                            <div className="font-medium">{figures.kpi3 || '-'}</div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI2: Regelanalist</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi2 || '-'}</div>
                           </div>
-                          <div>
-                            <div className="text-xs text-slate-500">Interne Fase</div>
-                            <div className="font-medium">{gemeenteFase || '-'}</div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI3: Omgevingsloket</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi3 || '-'}</div>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI4: Omgevingsplan</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi4 || '-'}</div>
                           </div>
                         </div>
+                        {gemeenteFase && (
+                          <div className="mt-3 pt-3 border-t border-slate-200">
+                            <span className="text-xs text-slate-500">Interne Fase: </span>
+                            <span className="text-sm font-medium text-slate-700">{gemeenteFase}</span>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Sync Info */}
+                      {m.lastUpdate && (
+                        <div className="md:col-span-2 text-right">
+                          <span className="text-xs text-slate-400">🔄 Laatste sync: {m.lastUpdate}</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
