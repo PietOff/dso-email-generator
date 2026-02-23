@@ -267,7 +267,13 @@ function App() {
                 onClick={() => setActiveView('matrix')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'matrix' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
-                🗺️ Volledige Matrix
+                📊 Volledige Matrix
+              </button>
+              <button
+                onClick={() => setActiveView('kaart')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'kaart' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                🗺️ DSO Kaart
               </button>
             </div>
           </div>
@@ -431,6 +437,20 @@ function App() {
               width="100%"
               height="100%"
               src="https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9"
+              frameBorder="0"
+              allowFullScreen={true}
+            ></iframe>
+          </div>
+        </div>
+
+        {/* DSO Kaart View */}
+        <div className={activeView === 'kaart' ? 'block' : 'hidden'}>
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative" style={{ height: '80vh' }}>
+            <iframe
+              title="DSO Kaart"
+              width="100%"
+              height="100%"
+              src="https://app.powerbi.com/groups/me/reports/37029391-f655-465a-9e0f-1431d9fe151b/0c758ca04b53083866a3?ctid=387b9da3-a5d6-4d28-8547-264dbeacdd35&experience=power-bi"
               frameBorder="0"
               allowFullScreen={true}
             ></iframe>
