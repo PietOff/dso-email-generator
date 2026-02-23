@@ -45,6 +45,7 @@ export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, on
 
             dataByCity[cleanName] = {
                 name: cleanName,
+                originalName: g.bestuursorgaan,
                 kpi1: kpi1V, kpi2: kpi2V, kpi3: kpi3V, kpi4: kpi4V,
                 totaleScore: kpi1V + kpi2V + kpi3V + kpi4V,
                 aantalRegels: Number(m.aantalRegels) || 0,
@@ -239,7 +240,7 @@ export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, on
                                         color = colorScale(val);
                                     }
 
-                                    const geoGemeenteName = `Gemeente ${geoName}`;
+                                    const geoGemeenteName = data && data.originalName ? data.originalName : `Gemeente ${geoName}`;
                                     const isSelected = selectedGemeente === geoGemeenteName;
 
                                     return (
