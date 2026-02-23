@@ -229,7 +229,14 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         const bedrijfWebsite = algemeen.bedrijf_website || 'www.abeltalent.nl';
         const partnerNaam = algemeen.partner_naam || 'Tafelberg Advies';
         const partnerWebsite = algemeen.partner_website || 'www.tafelbergadvies.nl';
-        return `${groet},\n${options.afzender || 'Team'}\n${bedrijfNaam}\n${bedrijfAdres}\n${bedrijfTelefoon}\n${bedrijfWebsite}\n\nIn samenwerking met ${partnerNaam}\n${partnerWebsite}`;
+
+        let sig = `${groet},\n${options.afzender || 'Team'}\n${bedrijfNaam}\n${bedrijfAdres}\n${bedrijfTelefoon}\n${bedrijfWebsite}\n\nIn samenwerking met ${partnerNaam}\n${partnerWebsite}`;
+
+        if (options.voegWhitepaperToe) {
+            sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\nhttps://dso-email-generator.vercel.app/Whitepaper_AbelTalent.pdf`;
+        }
+
+        return sig;
     };
 
     // === Email 1: First Contact ===

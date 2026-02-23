@@ -13,6 +13,7 @@ function App() {
     toon: 'professioneel',
     doel: 'eerste-contact',
     afzender: '',
+    voegWhitepaperToe: false
   });
   const [selectedContact, setSelectedContact] = useState(null);
   const [generatedEmails, setGeneratedEmails] = useState({ email1: '', email2: '', email3: '' });
@@ -625,6 +626,19 @@ function App() {
                     <option value="workshop">Workshop uitnodigen</option>
                   </select>
                 </div>
+
+                <div className="pt-2 border-t border-slate-100 mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={options.voegWhitepaperToe || false}
+                      onChange={(e) => setOptions({ ...options, voegWhitepaperToe: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                    />
+                    <span className="text-sm font-medium text-slate-700 group-hover:text-blue-600 transition-colors">Voeg Whitepaper Link Toe</span>
+                  </label>
+                  <p className="text-[10px] text-slate-400 mt-1 ml-6">Automatisch een link naar de whitepaper onderaan de e-mail plaatsen.</p>
+                </div>
               </div>
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <button onClick={() => setShowBaseStory(!showBaseStory)} className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -755,9 +769,14 @@ function App() {
                   ))}
                 </div>
                 {generatedEmails[activeTab] && (
-                  <button onClick={copyToClipboard} className={`text-sm font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}>
-                    {copied ? '✓' : '📋'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <a href="/Whitepaper_AbelTalent.pdf" download="Whitepaper_Praktische_Oplossingen_Omgevingswet_AbelTalent.pdf" className="text-[13px] font-medium px-4 py-2 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors flex items-center gap-1.5" title="Download Whitepaper als PDF">
+                      <span>📄</span> Whitepaper
+                    </a>
+                    <button onClick={copyToClipboard} className={`text-[13px] font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}>
+                      {copied ? '✓ Gekopieerd' : '📋 Kopieer'}
+                    </button>
+                  </div>
                 )}
               </div>
 
