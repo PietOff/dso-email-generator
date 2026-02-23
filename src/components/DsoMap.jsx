@@ -287,6 +287,36 @@ export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, on
                 </ComposableMap>
             </div>
 
+            {/* Legend and Info Box */}
+            <div className="absolute bottom-6 left-6 z-10 bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-lg border border-slate-200 pointer-events-auto w-64 max-h-[40vh] overflow-y-auto">
+                <h3 className="text-sm font-bold text-slate-800 border-b pb-2 mb-2 flex items-center gap-2">
+                    <span>📍</span> Legenda & Uitleg
+                </h3>
+                <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                    De kleur weerspiegelt de status per gemeente op basis van de gekozen weergave (rechtsboven).
+                    <br /><br />
+                    <strong>Tip:</strong> Klik op een gemeente op de kaart om de bijbehorende contactgegevens en scores in te laden in de <span className="font-semibold">Email Generator</span> tab.
+                </p>
+
+                {metric === 'regels' ? (
+                    <div className="space-y-1">
+                        <div className="text-xs font-semibold text-slate-700 mb-1">Aantal Toepasbare Regels</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-slate-100 border border-slate-200"></span> 0 TR (Grijswit)</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-blue-300"></span> ~50 TR (Lichtblauw)</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-blue-700"></span> 200+ TR (Donkerblauw)</div>
+                    </div>
+                ) : (
+                    <div className="space-y-1">
+                        <div className="text-xs font-semibold text-slate-700 mb-1">
+                            {metric === 'totaleScore' ? 'Totale Risico Score (0-20)' : 'Specifieke KPI Score (0-5)'}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-green-500"></span> Goed / Laag Risico</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-yellow-400"></span> Matig / Aandacht vereist</div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500"><span className="w-3 h-3 rounded-full bg-red-500"></span> Slecht / Hoog Risico</div>
+                    </div>
+                )}
+            </div>
+
             {/* Tooltip */}
             {tooltipContent && (
                 <div
