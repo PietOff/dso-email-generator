@@ -1,7 +1,22 @@
 import puppeteer from 'puppeteer';
+import { gemeenteData } from '../src/data/gemeenteData.js';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz55Xb1jRbD_M23ZIHelo4N0ZjmvpZw7KTHu4eCrw2s19l0bNfT1Po3r6gTh_Z2_1yK/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
+
+// Build KPI lookup from static gemeenteData (name without 'gemeente ' prefix → scores)
+const kpiLookup = {};
+for (const g of gemeenteData) {
+    const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').trim();
+    if (naam) {
+        kpiLookup[naam.toLowerCase()] = {
+            kpi1: g.dierlijkeMestScore || '',
+            kpi2: g.regelanalistScore || '',
+            kpi3: g.scoreOLO || '',
+        };
+    }
+}
+console.log(`📋 Loaded ${Object.keys(kpiLookup).length} gemeenten from static KPI data`);
 
 // ============================================================================
 // APPROACH: Network Interception
@@ -427,16 +442,21 @@ function parseT1(rows) {
         // Push to Google Sheet
         let successCount = 0;
         for (const record of records) {
+            // Look up static KPI1-3 scores from gemeenteData
+            const staticKpis = kpiLookup[record.gemeente.toLowerCase()] || {};
+
             const payload = {
                 type: 'Monitor Sync',
                 gemeente: record.gemeente,
+                kpi1: staticKpis.kpi1 || '',
+                kpi2: staticKpis.kpi2 || '',
+                kpi3: staticKpis.kpi3 || '',
                 kpi4: record.kpi4 || '',
                 regelingType: record.regelingType || '',
                 behandeldienst: record.behandeldienst || '',
                 aantalRegels: String(record.aantalRegels || ''),
                 laatsteWijziging: record.laatsteWijziging || '',
                 trSoftware: record.trSoftware || '',
-                kpi1: '', kpi2: '', kpi3: ''
             };
 
             try {
