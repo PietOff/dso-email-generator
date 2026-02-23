@@ -2,7 +2,7 @@ name: Sync Power BI Data
 
 on:
   schedule:
-    - cron: "0 8 * * *" # Runs at 08:00 AM UTC
+    - cron: "0 8 1,15 * *" # Runs at 08:00 AM UTC on the 1st and 15th of every month
   workflow_dispatch: # Manual trigger
   repository_dispatch: # API trigger from Vercel
     types: [sync-powerbi]
