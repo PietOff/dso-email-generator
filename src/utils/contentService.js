@@ -9,7 +9,7 @@
  */
 
 const SHEET_ID = '1FWC_JHiy_fpPKEw7_dPNfpYOIrJBkCTIyBKRCWqd6cs';
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxSBxwydzP5DZbpd4mI-LK3GPlMwVsTXpMOSnUWqtTXJdbFAMhnwOHubehOF_X67XE3/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz55Xb1jRbD_M23ZIHelo4N0ZjmvpZw7KTHu4eCrw2s19l0bNfT1Po3r6gTh_Z2_1yK/exec';
 
 export function getGoogleSheetUrl() {
     return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
