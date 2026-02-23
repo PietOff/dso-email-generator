@@ -3,6 +3,7 @@ import { generateEmail } from './utils/generator';
 import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
+import DsoMap from './components/DsoMap';
 
 function App() {
   const [baseStory, setBaseStory] = useState("Vanuit AbelTalent en onze partner Tafelberg Advies werken we dagelijks samen met gemeenten aan de Omgevingswet — van regelanalyse en vragenbomen tot capaciteitsvraagstukken. We kennen de uitdagingen, en helpen daar graag bij.");
@@ -149,6 +150,11 @@ function App() {
     setSearchQuery(name);
     setSelectedContact(null);
     setGeneratedEmails({ email1: '', email2: '', email3: '' });
+
+    // If selected from map, switch to generator view
+    if (activeView === 'kaart') {
+      setActiveView('generator');
+    }
 
     // Default data from local JSON
     const data = gemeenteData.find(g => g.bestuursorgaan === name);
@@ -446,14 +452,14 @@ function App() {
         {/* DSO Kaart View */}
         <div className={activeView === 'kaart' ? 'block' : 'hidden'}>
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative" style={{ height: '80vh' }}>
-            <iframe
-              title="DSO Kaart"
-              width="100%"
-              height="100%"
-              src="https://app.powerbi.com/groups/me/reports/37029391-f655-465a-9e0f-1431d9fe151b/0c758ca04b53083866a3?ctid=387b9da3-a5d6-4d28-8547-264dbeacdd35&experience=power-bi"
-              frameBorder="0"
-              allowFullScreen={true}
-            ></iframe>
+            {activeView === 'kaart' && (
+              <DsoMap
+                monitorData={monitorData}
+                gemeenteData={gemeenteData}
+                selectedGemeente={selectedGemeente}
+                onSelectGemeente={handleSelectGemeente}
+              />
+            )}
           </div>
         </div>
 
