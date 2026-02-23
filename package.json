@@ -11,6 +11,8 @@
     "sync": "node scripts/sync_powerbi.js"
   },
   "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-geo": "^3.1.1",
     "d3-scale": "^4.0.2",
     "prop-types": "^15.8.1",
     "react": "^19.2.0",
