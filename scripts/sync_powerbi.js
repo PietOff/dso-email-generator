@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import { gemeenteData } from '../src/data/gemeenteData.js';
 
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz55Xb1jRbD_M23ZIHelo4N0ZjmvpZw7KTHu4eCrw2s19l0bNfT1Po3r6gTh_Z2_1yK/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAWP1F-q4ActHk93AYRjmB8VlWBf5DhXTtAt0hrONlbX_CLjpSU9rwmmtBMQgzjnIy/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
 // Build KPI lookup from static gemeenteData (name without 'gemeente ' prefix → scores)
