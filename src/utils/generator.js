@@ -233,7 +233,7 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         let sig = `${groet},\n${options.afzender || 'Team'}\n${bedrijfNaam}\n${bedrijfAdres}\n${bedrijfTelefoon}\n${bedrijfWebsite}\n\nIn samenwerking met ${partnerNaam}\n${partnerWebsite}`;
 
         if (options.voegWhitepaperToe) {
-            sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\nhttps://dso-email-generator.vercel.app/Whitepaper_AbelTalent.pdf`;
+            sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\n/Whitepaper_AbelTalent.pdf`;
         }
 
         return sig;

@@ -355,8 +355,21 @@ function parseT1(rows) {
         if (sttrId) results[naam].sttrIds.add(sttrId);
 
         // Update latest modification date
-        if (wijzigingsdatumStr > results[naam].laatsteWijziging) {
-            results[naam].laatsteWijziging = wijzigingsdatumStr;
+        if (wijzigingsdatumStr) {
+            const parts = wijzigingsdatumStr.split('-');
+            if (parts.length === 3) {
+                const currentWijziging = new Date(parts[2], parts[1] - 1, parts[0]);
+
+                let existingWijziging = null;
+                if (results[naam].laatsteWijziging) {
+                    const eParts = results[naam].laatsteWijziging.split('-');
+                    existingWijziging = new Date(eParts[2], eParts[1] - 1, eParts[0]);
+                }
+
+                if (!existingWijziging || currentWijziging > existingWijziging) {
+                    results[naam].laatsteWijziging = wijzigingsdatumStr;
+                }
+            }
         }
 
         // Capture software (usually the same for all rows of a BG)
