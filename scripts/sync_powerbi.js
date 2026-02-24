@@ -279,7 +279,6 @@ function parseR1(rows) {
     for (const row of rows) {
         const aknUrl = row[0] || '';
         const bevoegdGezag = row[1] || '';
-        if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
 
@@ -317,7 +316,6 @@ function parseI3(rows) {
     for (const row of rows) {
         const bevoegdGezag = row[2] || '';
         const behandeldienst = row[4] || '';
-        if (!bevoegdGezag.toLowerCase().startsWith('gemeente')) continue;
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam || !behandeldienst) continue;
         if (!results[naam]) results[naam] = { gemeente: naam, behandeldiensten: {} };
@@ -335,7 +333,6 @@ function parseT1(rows) {
         const bestuursorgaan = row[0] || '';
         const wijzigingsdatum = row[3] || '';
         const trSoftware = row[9] || '';
-        if (!bestuursorgaan.toLowerCase().startsWith('gemeente')) continue;
         const naam = bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
         if (!results[naam]) results[naam] = { gemeente: naam, aantalRegels: 0, laatsteWijziging: '', trSoftware: '' };
