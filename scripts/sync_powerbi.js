@@ -249,6 +249,21 @@ async function navigateToPage(page, pageName, captured) {
     }
 }
 
+/**
+ * Scroll the page to trigger Power BI to load more data in tables.
+ */
+async function scrollVisuals(page) {
+    console.log('    🖱️ Scrolling to fetch paginated data...');
+    // Move mouse to center of the viewport (usually where the main visual is)
+    await page.mouse.move(700, 450);
+    // Scroll down multiple times with delays
+    for (let i = 0; i < 4; i++) {
+        await page.mouse.wheel({ deltaY: 2000 });
+        // Wait 3 seconds for new querydata API calls to fire and complete
+        await new Promise(r => setTimeout(r, 3000));
+    }
+}
+
 // --- PARSERS (unchanged from original) ---
 
 function parseR1(rows) {
@@ -378,6 +393,7 @@ function parseT1(rows) {
         console.log('\n📊 [R1] Scraping Regelingen...');
         captured.queries = []; // Clear for fresh capture
         await navigateToPage(page, 'R1.', captured);
+        await scrollVisuals(page);
         const r1Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${r1Rows.length} raw rows from API`);
         if (r1Rows.length > 0) {
@@ -392,6 +408,7 @@ function parseT1(rows) {
         console.log('\n📊 [I3] Scraping Behandeldiensten...');
         captured.queries = [];
         await navigateToPage(page, 'I3.', captured);
+        await scrollVisuals(page);
         const i3Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${i3Rows.length} raw rows from API`);
         if (i3Rows.length > 0) {
@@ -406,6 +423,7 @@ function parseT1(rows) {
         console.log('\n📊 [T1] Scraping Toepasbare regels...');
         captured.queries = [];
         await navigateToPage(page, 'T1.', captured);
+        await scrollVisuals(page);
         const t1Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${t1Rows.length} raw rows from API`);
         if (t1Rows.length > 0) {
@@ -419,6 +437,13 @@ function parseT1(rows) {
         // =====================
         console.log('\n☁️ Merging and syncing to Google Sheet...');
         const merged = {};
+
+        // PREPOPULATE ALL 342 MUNICIPALITIES
+        // This ensures no municipality is ever "missing" from the map/sheet
+        for (const g of gemeenteData) {
+            const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').trim();
+            if (naam) merged[naam] = { gemeente: naam };
+        }
 
         for (const r of regelingen) {
             if (!merged[r.gemeente]) merged[r.gemeente] = { gemeente: r.gemeente };
