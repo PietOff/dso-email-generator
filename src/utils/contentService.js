@@ -9,7 +9,7 @@
  */
 
 const SHEET_ID = '1FWC_JHiy_fpPKEw7_dPNfpYOIrJBkCTIyBKRCWqd6cs';
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz_dkOccTYvUm06umxgUBvShoOPIbvguH7m_fbcQPAn5Vl5JjDvTXVnurKfZnLIVd5-/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAWP1F-q4ActHk93AYRjmB8VlWBf5DhXTtAt0hrONlbX_CLjpSU9rwmmtBMQgzjnIy/exec';
 
 export function getGoogleSheetUrl() {
     return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
@@ -212,10 +212,10 @@ export async function fetchMonitorData() {
                     kpi2: row['KPI2_Regelanalist'] || '',
                     kpi3: row['KPI3_OLO'] || '',
                     kpi4: row['KPI4_Omgevingsplan'] || '',
-                    regelingType: row['Regeling Type'] || '',
-                    behandeldienst: row['Behandeldienst'] || '',
-                    aantalRegels: row['Aantal Regels'] || '',
-                    laatsteWijziging: row['Laatste Wijziging'] || '',
+                    regelingType: row['Regeling Type'] || row['Stadium'] || '',
+                    behandeldienst: row['Behandeldienst'] || row['Dienstverband'] || '',
+                    aantalRegels: row['Aantal Regels'] || row['Aantal TR'] || '',
+                    laatsteWijziging: row['Laatste Wijziging'] || row['Versie'] || '',
                     trSoftware: row['TR Software'] || '',
                     lastUpdate: row['Laatste Update'] || ''
                 };
