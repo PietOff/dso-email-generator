@@ -267,43 +267,23 @@ async function scrollVisuals(page) {
 // --- PARSERS (unchanged from original) ---
 
 function parseR1(rows) {
-    // R1 API columns (discovered via V3 network dump):
-    // [0] AKN ID (e.g. "/akn/nl/act/gm0301/2024/omgevingsvisie")
-    // [1] Bevoegd gezag (e.g. "gemeente Zutphen")
-    // [2] Type (e.g. "Gemeente")
-    // [3..7] timestamps/numbers
-    // [8..13] various metadata
-    //
-    // Extract the soort (Omgevingsplan/Omgevingsvisie) from the AKN URL
+    if (rows.length > 0) {
+        console.log('    🔍 R1 Sample Row [0]:', JSON.stringify(rows[0]));
+    }
     const results = {};
     for (const row of rows) {
-        const aknUrl = row[0] || '';
-        const bevoegdGezag = row[1] || '';
+        // [0] Bevoegd gezag (e.g. "gemeente Zutphen")
+        // [4] Soort (e.g. "Omgevingsplan")
+        const bevoegdGezag = row[0] || '';
+        const soort = row[4] || '';
+
         const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
-
-        // Extract soort from AKN URL: last segment before any version
-        // e.g. "/akn/nl/act/gm0301/2024/omgevingsvisie" → "omgevingsvisie"
-        let soort = '';
-        const aknParts = aknUrl.split('/').filter(Boolean);
-        const lastPart = aknParts[aknParts.length - 1] || '';
-        if (lastPart.includes('omgevingsplan')) soort = 'Omgevingsplan';
-        else if (lastPart.includes('omgevingsvisie')) soort = 'Omgevingsvisie';
-        else if (lastPart.includes('voorbeschermingsregel')) soort = 'Voorbeschermingsregels';
-        else if (lastPart.includes('voorbereidingsbesluit')) soort = 'Voorbereidingsbesluit';
-        else {
-            // Also check all columns for known text
-            for (const cell of row) {
-                if (cell === 'Omgevingsplan' || cell === 'Omgevingsvisie' || cell === 'Voorbeschermingsregels' || cell === 'Voorbereidingsbesluit') {
-                    soort = cell;
-                    break;
-                }
-            }
-        }
 
         const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
         const currentPriority = priority[soort] || 5;
         const existingPriority = results[naam]?.priority || 99;
+
         if (currentPriority < existingPriority) {
             results[naam] = { gemeente: naam, regelingType: soort, priority: currentPriority, kpi4: String(currentPriority) };
         }
@@ -312,6 +292,9 @@ function parseR1(rows) {
 }
 
 function parseI3(rows) {
+    if (rows.length > 0) {
+        console.log('    🔍 I3 Sample Row [0]:', JSON.stringify(rows[0]));
+    }
     const results = {};
     for (const row of rows) {
         const bevoegdGezag = row[2] || '';
@@ -328,19 +311,66 @@ function parseI3(rows) {
 }
 
 function parseT1(rows) {
+    if (rows.length > 0) {
+        console.log('    🔍 T1 Sample Row [0]:', JSON.stringify(rows[0]));
+    }
     const results = {};
+    const now = new Date();
+
     for (const row of rows) {
+        // [0] Bestuursorgaan
+        // [1] STTR ID
+        // [3] Wijzigingsdatum (bijv. "24-02-2026")
+        // [5] Einddatum (bijv. "24-02-2026" of "")
+        // [9] TR Software
+
         const bestuursorgaan = row[0] || '';
-        const wijzigingsdatum = row[3] || '';
+        const sttrId = row[1];
+        const wijzigingsdatumStr = row[3] || '';
+        const einddatumStr = row[5] || '';
         const trSoftware = row[9] || '';
+
         const naam = bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
         if (!naam) continue;
-        if (!results[naam]) results[naam] = { gemeente: naam, aantalRegels: 0, laatsteWijziging: '', trSoftware: '' };
-        results[naam].aantalRegels++;
-        if (wijzigingsdatum > results[naam].laatsteWijziging) results[naam].laatsteWijziging = wijzigingsdatum;
-        if (trSoftware && !results[naam].trSoftware) results[naam].trSoftware = trSoftware;
+
+        // Filter: Check if rule is still active
+        if (einddatumStr) {
+            // Power BI dates are usually DD-MM-YYYY in this visual
+            const parts = einddatumStr.split('-');
+            if (parts.length === 3) {
+                const eindDatum = new Date(parts[2], parts[1] - 1, parts[0]);
+                if (eindDatum < now) continue; // Rule has expired
+            }
+        }
+
+        if (!results[naam]) {
+            results[naam] = {
+                gemeente: naam,
+                sttrIds: new Set(),
+                laatsteWijziging: '',
+                trSoftware: ''
+            };
+        }
+
+        if (sttrId) results[naam].sttrIds.add(sttrId);
+
+        // Update latest modification date
+        if (wijzigingsdatumStr > results[naam].laatsteWijziging) {
+            results[naam].laatsteWijziging = wijzigingsdatumStr;
+        }
+
+        // Capture software (usually the same for all rows of a BG)
+        if (trSoftware && !results[naam].trSoftware) {
+            results[naam].trSoftware = trSoftware;
+        }
     }
-    return Object.values(results);
+
+    return Object.values(results).map(r => ({
+        gemeente: r.gemeente,
+        aantalRegels: r.sttrIds.size,
+        laatsteWijziging: r.laatsteWijziging,
+        trSoftware: r.trSoftware
+    }));
 }
 
 // --- MAIN ---
