@@ -753,28 +753,30 @@ function App() {
             )}
 
             <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60 flex flex-col" style={{ minHeight: '400px' }}>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold text-slate-800">✉️ Gegenereerde Email</h2>
-                <div className="flex gap-2">
-                  {['email1', 'email2', 'email3'].map((tab, i) => (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`text-xs px-3 py-1.5 rounded-full transition-all font-medium ${activeTab === tab
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                    >
-                      {i + 1}. {tab === 'email1' ? 'Opening' : tab === 'email2' ? 'Follow-up' : 'Waarde'}
-                    </button>
-                  ))}
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <h2 className="text-lg font-bold text-slate-800 shrink-0">✉️ Gegenereerde Email</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    {['email1', 'email2', 'email3'].map((tab, i) => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`text-xs px-3 py-1.5 rounded-full transition-all font-medium ${activeTab === tab
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                      >
+                        {i + 1}. {tab === 'email1' ? 'Opening' : tab === 'email2' ? 'Follow-up' : 'Waarde'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 {generatedEmails[activeTab] && (
-                  <div className="flex items-center gap-2">
-                    <a href="/Whitepaper_AbelTalent.pdf" download="Whitepaper_Praktische_Oplossingen_Omgevingswet_AbelTalent.pdf" className="text-[13px] font-medium px-4 py-2 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors flex items-center gap-1.5" title="Download Whitepaper als PDF">
+                  <div className="flex items-center gap-2 self-end lg:self-auto shrink-0">
+                    <a href="/Whitepaper_AbelTalent.pdf" download="Whitepaper_Praktische_Oplossingen_Omgevingswet_AbelTalent.pdf" className="text-xs font-medium px-3 py-2 rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Download Whitepaper als PDF">
                       <span>📄</span> Whitepaper
                     </a>
-                    <button onClick={copyToClipboard} className={`text-[13px] font-medium px-4 py-2 rounded-lg transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}>
-                      {copied ? '✓ Gekopieerd' : '📋 Kopieer'}
+                    <button onClick={copyToClipboard} className={`text-xs font-medium px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${copied ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}>
+                      <span>{copied ? '✓' : '📋'}</span> {copied ? 'Gekopieerd' : 'Kopieer'}
                     </button>
                   </div>
                 )}
