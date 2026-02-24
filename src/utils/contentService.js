@@ -303,3 +303,62 @@ export function clearContentCache() {
     notesCache = null;
     notesCacheTimestamp = 0;
 }
+
+/**
+ * Fetch historical data for sparklines
+ * Returns a dictionary: { "Amsterdam": [7.5, 8.0, 8.5], ... }
+ * Shows max the 3 most recent scores (oldest to newest left-to-right)
+ */
+export async function fetchMonitorHistory() {
+    try {
+        const res = await fetch(sheetUrl('Monitor History'));
+        const text = await res.text();
+        const rows = parseGoogleJson(text);
+
+        if (!rows || rows.length === 0) return {};
+
+        const historyMap = {};
+
+        rows.forEach(row => {
+            const gem = (row['Gemeente'] || '').trim();
+            if (!gem) return;
+
+            const getKpiScoreStr = (val) => {
+                if (val === undefined || val === null || val === '') return null;
+                const v = parseInt(val, 10);
+                return isNaN(v) ? null : v;
+            };
+
+            const validScores = [
+                getKpiScoreStr(row['KPI1_Mest']),
+                getKpiScoreStr(row['KPI2_Regelanalist']),
+                getKpiScoreStr(row['KPI3_OLO']),
+                getKpiScoreStr(row['KPI4_Omgevingsplan'])
+            ].filter(s => s !== null && s !== -1);
+
+            if (validScores.length === 0) return;
+
+            const sum = validScores.reduce((a, b) => a + b, 0);
+            const rawScore = sum / validScores.length;
+            const totalScore = Math.min(10, Math.max(1, 10 - rawScore));
+
+            const dateStr = row['Laatste Update'] || row['Timestamp'] || '';
+            const timestamp = dateStr ? new Date(dateStr).getTime() : Date.now();
+
+            if (!historyMap[gem]) historyMap[gem] = [];
+            historyMap[gem].push({ score: totalScore, timestamp });
+        });
+
+        const result = {};
+        Object.keys(historyMap).forEach(gem => {
+            historyMap[gem].sort((a, b) => b.timestamp - a.timestamp);
+            const recent = historyMap[gem].slice(0, 3).map(e => Math.round(e.score * 10) / 10);
+            result[gem] = recent.reverse();
+        });
+
+        return result;
+    } catch (err) {
+        console.warn('Failed to fetch monitor history. It might not exist yet.', err);
+        return {};
+    }
+}

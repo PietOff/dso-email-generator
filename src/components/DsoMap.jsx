@@ -10,7 +10,7 @@ const geoUrl = '/nl-gemeenten.topojson';
 const MAP_CENTER_NL = [5.2913, 52.1326];
 const BASE_ZOOM = 1;
 
-export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, onSelectGemeente }) {
+export default function DsoMap({ monitorData, historyData, gemeenteData, selectedGemeente, onSelectGemeente }) {
     const [tooltipContent, setTooltipContent] = useState(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     const [metric, setMetric] = useState('totaleScore');
@@ -52,7 +52,8 @@ export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, on
                 regelingType: m.regelingType || 'Onbekend',
                 behandeldienst: m.behandeldienst || '',
                 software: m.trSoftware || '',
-                contactpersonen: g.contactpersonen || []
+                contactpersonen: g.contactpersonen || [],
+                history: historyData && historyData[g.bestuursorgaan] ? historyData[g.bestuursorgaan] : []
             };
         });
         return dataByCity;
@@ -339,9 +340,36 @@ export default function DsoMap({ monitorData, gemeenteData, selectedGemeente, on
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                                <div className="bg-slate-50 p-2 rounded border border-slate-100 flex flex-col justify-between">
                                     <div className="text-[10px] text-slate-500">Risico Score</div>
-                                    <div className="text-lg font-bold text-slate-800">{tooltipContent.totaleScore}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-lg font-bold text-slate-800">{tooltipContent.totaleScore}</div>
+                                        {/* Sparkline */}
+                                        {tooltipContent.history && tooltipContent.history.length > 1 ? (
+                                            <div className="h-6 w-16 ml-2" title={"Verleden: " + tooltipContent.history.join(" → ")}>
+                                                <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible">
+                                                    <polyline
+                                                        fill="none"
+                                                        stroke="#6366f1"
+                                                        strokeWidth="4"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        points={tooltipContent.history.map((h, i) => {
+                                                            const x = (i / (tooltipContent.history.length - 1)) * 100;
+                                                            // Score is 0-20, map to 40-0 (lower score = red = bad = lower line?)
+                                                            // Actually lower score = goed (green) in the UI? 
+                                                            // Wait, total score is 0-20. 20 is bad. 0 is good.
+                                                            // Let's just graph it absolutely. Height 40. Y = (h / 20) * 40.
+                                                            let y = (h / 20) * 40;
+                                                            return `${x},${y}`;
+                                                        }).join(" ")}
+                                                    />
+                                                </svg>
+                                            </div>
+                                        ) : (
+                                            <div className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-500 font-medium ml-2">Nieuw</div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="bg-slate-50 p-2 rounded border border-slate-100">
                                     <div className="text-[10px] text-slate-500">Toepasbare Regels</div>

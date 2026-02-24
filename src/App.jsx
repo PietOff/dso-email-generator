@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 import DsoMap from './components/DsoMap';
@@ -24,6 +24,7 @@ function App() {
   const [showBaseStory, setShowBaseStory] = useState(false);
   const [sheetContent, setSheetContent] = useState(null);
   const [monitorData, setMonitorData] = useState(null);
+  const [monitorHistory, setMonitorHistory] = useState({});
   const [contentStatus, setContentStatus] = useState('loading');
   const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
@@ -57,14 +58,16 @@ function App() {
   const loadContent = async () => {
     setContentStatus('loading');
     try {
-      const [content, monitor] = await Promise.all([
+      const [content, monitor, history] = await Promise.all([
         fetchContent(),
-        fetchMonitorData()
+        fetchMonitorData(),
+        fetchMonitorHistory()
       ]);
 
       if (content) {
         setSheetContent(content);
         setMonitorData(monitor);
+        setMonitorHistory(history);
         setContentStatus('loaded');
         if (content.algemeen && content.algemeen.standaard_verhaal) {
           setBaseStory(content.algemeen.standaard_verhaal);
@@ -456,6 +459,7 @@ function App() {
             {activeView === 'kaart' && (
               <DsoMap
                 monitorData={monitorData}
+                historyData={monitorHistory}
                 gemeenteData={gemeenteData}
                 selectedGemeente={selectedGemeente}
                 onSelectGemeente={handleSelectGemeente}
