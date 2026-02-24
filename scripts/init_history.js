@@ -1,4 +1,4 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz_dkOccTYvUm06umxgUBvShoOPIbvguH7m_fbcQPAn5Vl5JjDvTXVnurKfZnLIVd5-/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxpHyv27KGUZh72k-wx0qbwVSPdnIE55okwChZedWM5pfyYI0SCOZ_XJ7d_A_A5FnY/exec';
 const payload = {
     type: 'Monitor Sync',
     gemeente: 'Initialisatie_Geschiedenis_Tab',

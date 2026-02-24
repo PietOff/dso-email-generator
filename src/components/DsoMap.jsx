@@ -53,7 +53,7 @@ export default function DsoMap({ monitorData, historyData, gemeenteData, selecte
                 behandeldienst: m.behandeldienst || '',
                 software: m.trSoftware || '',
                 contactpersonen: g.contactpersonen || [],
-                history: historyData && historyData[g.bestuursorgaan] ? historyData[g.bestuursorgaan] : []
+                history: historyData && historyData[cleanName] ? historyData[cleanName] : []
             };
         });
         return dataByCity;
