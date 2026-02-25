@@ -96,11 +96,11 @@ function setupSheet() {
   sheet4.setColumnWidth(4, 200);
   
   // === SHEET 5: Email Teksten === (NEW — all email template text, editable from here)
-  var sheet5 = ss.insertSheet("Email Teksten");
-  var emailData = [
-    ["key", "tekst_professioneel", "tekst_informeel", "opmerkingen"],
-
+  setupSheet(ss, 'Email Teksten', [
+    ['key', 'tekst_professioneel', 'tekst_informeel', 'opmerkingen'],
     // --- Openings ---
+    ['opening', 'Beste {{contact_voornaam}},', 'Hoi {{contact_voornaam}},', ''],
+    ['afsluiting', 'Met vriendelijke groet,', 'Groeten,', ''],
     ["opening_eerste_contact", "Als organisatie die dagelijks gemeenten ondersteunt bij de Omgevingswet neem ik graag even contact met u op.", "We werken veel met gemeenten die op dit moment volop bezig zijn met de Omgevingswet, en dan kwam ik jullie tegen. Even een kort berichtje.", "Eerste contact opening"],
     ["opening_follow_up", "Naar aanleiding van ons eerdere contact wil ik graag even bij u aansluiten.", "Fijn dat we eerder even contact hadden. Ik wilde graag even aanhaken.", "Follow-up opening"],
     ["opening_urgent", "De Omgevingswet is inmiddels een feit en ik merk dat veel gemeenten nu tegen dezelfde uitdagingen aanlopen. Vandaar dat ik even contact opneem.", "De Omgevingswet is inmiddels een feit en veel gemeenten lopen tegen dezelfde dingen aan. Vandaar dat ik even een berichtje stuur.", "Urgente toon opening"],

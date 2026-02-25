@@ -356,10 +356,8 @@ export default function DsoMap({ monitorData, historyData, gemeenteData, selecte
                                                         strokeLinejoin="round"
                                                         points={tooltipContent.history.map((h, i) => {
                                                             const x = (i / (tooltipContent.history.length - 1)) * 100;
-                                                            // Score is 0-20, map to 40-0 (lower score = red = bad = lower line?)
-                                                            // Actually lower score = goed (green) in the UI? 
-                                                            // Wait, total score is 0-20. 20 is bad. 0 is good.
-                                                            // Let's just graph it absolutely. Height 40. Y = (h / 20) * 40.
+                                                            // Score in history is now 0-20 (risk score)
+                                                            // We want 0 (best) at top (y=0) and 20 (worst) at bottom (y=40)
                                                             let y = (h / 20) * 40;
                                                             return `${x},${y}`;
                                                         }).join(" ")}

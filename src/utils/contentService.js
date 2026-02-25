@@ -339,8 +339,7 @@ export async function fetchMonitorHistory() {
             if (validScores.length === 0) return;
 
             const sum = validScores.reduce((a, b) => a + b, 0);
-            const rawScore = sum / validScores.length;
-            const totalScore = Math.min(10, Math.max(1, 10 - rawScore));
+            const totalScore = sum; // Risk score (0-20), consistent with main app
 
             const dateStr = row['Laatste Update'] || row['Timestamp'] || '';
             const timestamp = dateStr ? new Date(dateStr).getTime() : Date.now();

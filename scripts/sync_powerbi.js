@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 import { gemeenteData } from '../src/data/gemeenteData.js';
 
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxpHyv27KGUZh72k-wx0qbwVSPdnIE55okwChZedWM5pfyYI0SCOZ_XJ7d_A_A5FnY/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAWP1F-q4ActHk93AYRjmB8VlWBf5DhXTtAt0hrONlbX_CLjpSU9rwmmtBMQgzjnIy/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
 // Build KPI lookup from static gemeenteData (name without 'gemeente ' prefix → scores)
@@ -509,6 +509,15 @@ function parseT1(rows) {
         for (const record of records) {
             // Look up static KPI1-3 scores from gemeenteData
             const staticKpis = kpiLookup[record.gemeente.toLowerCase()] || {};
+
+            // Only push if there is actually some meaningful data
+            const hasData = record.kpi4 || record.regelingType || record.behandeldienst || record.aantalRegels || record.laatsteWijziging || record.trSoftware;
+
+            if (!hasData) {
+                // If it's a completely empty record (meaning no Power BI data found), skip it
+                // We keep static KPIs from gemeenteData as a fallback in the app itself, but we don't need to bloat the sheet
+                continue;
+            }
 
             const payload = {
                 type: 'Monitor Sync',
