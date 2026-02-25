@@ -320,8 +320,8 @@ export async function fetchMonitorHistory() {
         const historyMap = {};
 
         rows.forEach(row => {
-            const gem = (row['Gemeente'] || '').trim();
-            if (!gem) return;
+            const cleanGem = (row['Gemeente'] || '').replace(/^gemeente\s+/i, '').trim().toLowerCase();
+            if (!cleanGem) return;
 
             const getKpiScoreStr = (val) => {
                 if (val === undefined || val === null || val === '') return null;
@@ -344,8 +344,8 @@ export async function fetchMonitorHistory() {
             const dateStr = row['Laatste Update'] || row['Timestamp'] || '';
             const timestamp = dateStr ? new Date(dateStr).getTime() : Date.now();
 
-            if (!historyMap[gem]) historyMap[gem] = [];
-            historyMap[gem].push({ score: totalScore, timestamp });
+            if (!historyMap[cleanGem]) historyMap[cleanGem] = [];
+            historyMap[cleanGem].push({ score: totalScore, timestamp });
         });
 
         const result = {};
