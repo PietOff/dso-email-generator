@@ -233,7 +233,7 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         let sig = `${groet},\n${options.afzender || 'Team'}\n${bedrijfNaam}\n${bedrijfAdres}\n${bedrijfTelefoon}\n${bedrijfWebsite}\n\nIn samenwerking met ${partnerNaam}\n${partnerWebsite}`;
 
         if (options.voegWhitepaperToe) {
-            const wpUrl = (sheetContent && sheetContent.algemeen && sheetContent.algemeen.whitepaper_url)
+            const wpUrl = (content && content.algemeen && content.algemeen.whitepaper_url)
                 || 'https://bit.ly/whitepaper-omgevingswet-abeltalent';
             sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\n${wpUrl}`;
         }
