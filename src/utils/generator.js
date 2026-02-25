@@ -233,7 +233,9 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         let sig = `${groet},\n${options.afzender || 'Team'}\n${bedrijfNaam}\n${bedrijfAdres}\n${bedrijfTelefoon}\n${bedrijfWebsite}\n\nIn samenwerking met ${partnerNaam}\n${partnerWebsite}`;
 
         if (options.voegWhitepaperToe) {
-            sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\nhttps://dso-email-generator.vercel.app/api/whitepaper`;
+            const wpUrl = (sheetContent && sheetContent.algemeen && sheetContent.algemeen.whitepaper_url)
+                || 'https://bit.ly/whitepaper-omgevingswet-abeltalent';
+            sig += `\n\nBijlage: Whitepaper Praktische Oplossingen Omgevingswet\n${wpUrl}`;
         }
 
         return sig;

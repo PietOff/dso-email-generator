@@ -24,7 +24,8 @@ function setupSheet() {
     ["serviceteam_beschrijving", "Het ServiceTeam Regelanalisten is een samenwerking tussen abelTalent en Tafelberg Advies. We helpen overheidsorganisaties grip te krijgen op de gehele Omgevingswet-keten — van juridische visie tot technische implementatie.", "Uit whitepaper"],
     ["sis8020_beschrijving", "SIS8020 is een gespecialiseerde tool — een 'wasstraat' voor MBA-data — ontwikkeld met GlobeScope. Reinigt en valideert data over milieubelastende activiteiten, 6x sneller dan handmatig.", "Uit whitepaper"],
     ["basis_op_orde", "Basis op Orde: directe opschoning en transitie — bruidsschat import, STOP/TPOD publicatie, launchgereedheid.", "Whitepaper concept"],
-    ["data_op_orde", "Data op Orde: duurzame, consistente en herbruikbare informatie met heldere rollen en processen voor lange termijn datakwaliteit.", "Whitepaper concept"]
+    ["data_op_orde", "Data op Orde: duurzame, consistente en herbruikbare informatie met heldere rollen en processen voor lange termijn datakwaliteit.", "Whitepaper concept"],
+    ["whitepaper_url", "https://bit.ly/whitepaper-omgevingswet-abeltalent", "Neutral link naar de whitepaper (bijv. Bitly of Google Drive)"]
   ];
   sheet1.getRange(1, 1, algemeenData.length, 3).setValues(algemeenData);
   sheet1.getRange(1, 1, 1, 3).setFontWeight("bold").setBackground("#4285f4").setFontColor("white");
