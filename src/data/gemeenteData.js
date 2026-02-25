@@ -948,7 +948,7 @@ export const gemeenteData = [
     ]
   },
   {
-    "bestuursorgaan": "gemeente Bergen (L)",
+    "bestuursorgaan": "gemeente Bergen (L.)",
     "dierlijkeMestScore": "5",
     "regelanalistScore": "5",
     "scoreOLO": "3",
@@ -962,7 +962,7 @@ export const gemeenteData = [
     ]
   },
   {
-    "bestuursorgaan": "gemeente Bergen (NH)",
+    "bestuursorgaan": "gemeente Bergen (NH.)",
     "dierlijkeMestScore": "5",
     "regelanalistScore": "5",
     "scoreOLO": "3",
