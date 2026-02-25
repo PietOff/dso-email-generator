@@ -97,7 +97,8 @@ function setupSheet() {
   sheet4.setColumnWidth(4, 200);
   
   // === SHEET 5: Email Teksten === (NEW — all email template text, editable from here)
-  setupSheet(ss, 'Email Teksten', [
+  var sheet5 = ss.insertSheet("Email Teksten");
+  var emailData = [
     ['key', 'tekst_professioneel', 'tekst_informeel', 'opmerkingen'],
     // --- Openings ---
     ['opening', 'Beste {{contact_voornaam}},', 'Hoi {{contact_voornaam}},', ''],

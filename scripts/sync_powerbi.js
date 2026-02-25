@@ -252,15 +252,30 @@ async function navigateToPage(page, pageName, captured) {
 /**
  * Scroll the page to trigger Power BI to load more data in tables.
  */
-async function scrollVisuals(page) {
+async function scrollVisuals(page, captured) {
     console.log('    🖱️ Scrolling to fetch paginated data...');
     // Move mouse to center of the viewport (usually where the main visual is)
     await page.mouse.move(700, 450);
+
+    let previousQueryCount = captured.queries.length;
+    let noNewDataCount = 0;
+
     // Scroll down multiple times with delays
-    for (let i = 0; i < 4; i++) {
-        await page.mouse.wheel({ deltaY: 2000 });
-        // Wait 3 seconds for new querydata API calls to fire and complete
-        await new Promise(r => setTimeout(r, 3000));
+    for (let i = 0; i < 50; i++) { // Increased max scrolls safely
+        await page.mouse.wheel({ deltaY: 5000 });
+        await new Promise(r => setTimeout(r, 4000));
+
+        let currentQueryCount = captured.queries.length;
+        if (currentQueryCount === previousQueryCount) {
+            noNewDataCount++;
+            if (noNewDataCount >= 5) {
+                console.log(`    🛑 Stopping scroll, no new data after 5 attempts. (Total queries: ${currentQueryCount})`);
+                break;
+            }
+        } else {
+            noNewDataCount = 0; // reset
+        }
+        previousQueryCount = currentQueryCount;
     }
 }
 
@@ -433,7 +448,7 @@ function parseT1(rows) {
         console.log('\n📊 [R1] Scraping Regelingen...');
         captured.queries = []; // Clear for fresh capture
         await navigateToPage(page, 'R1.', captured);
-        await scrollVisuals(page);
+        await scrollVisuals(page, captured);
         const r1Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${r1Rows.length} raw rows from API`);
         if (r1Rows.length > 0) {
@@ -448,7 +463,7 @@ function parseT1(rows) {
         console.log('\n📊 [I3] Scraping Behandeldiensten...');
         captured.queries = [];
         await navigateToPage(page, 'I3.', captured);
-        await scrollVisuals(page);
+        await scrollVisuals(page, captured);
         const i3Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${i3Rows.length} raw rows from API`);
         if (i3Rows.length > 0) {
@@ -463,7 +478,7 @@ function parseT1(rows) {
         console.log('\n📊 [T1] Scraping Toepasbare regels...');
         captured.queries = [];
         await navigateToPage(page, 'T1.', captured);
-        await scrollVisuals(page);
+        await scrollVisuals(page, captured);
         const t1Rows = extractRowsFromQueryData(captured.queries);
         console.log(`   Found ${t1Rows.length} raw rows from API`);
         if (t1Rows.length > 0) {
@@ -473,8 +488,6 @@ function parseT1(rows) {
         console.log(`   Parsed ${toepasbaar.length} gemeenten`);
 
         // =====================
-        // MERGE & PUSH
-        // =====================
         console.log('\n☁️ Merging and syncing to Google Sheet...');
         const merged = {};
 
@@ -482,23 +495,29 @@ function parseT1(rows) {
         // This ensures no municipality is ever "missing" from the map/sheet
         for (const g of gemeenteData) {
             const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').trim();
-            if (naam) merged[naam] = { gemeente: naam };
+            if (naam) {
+                const key = naam.toLowerCase();
+                merged[key] = { gemeente: naam };
+            }
         }
 
         for (const r of regelingen) {
-            if (!merged[r.gemeente]) merged[r.gemeente] = { gemeente: r.gemeente };
-            merged[r.gemeente].kpi4 = r.kpi4;
-            merged[r.gemeente].regelingType = r.regelingType;
+            const key = r.gemeente.toLowerCase();
+            if (!merged[key]) merged[key] = { gemeente: r.gemeente };
+            merged[key].kpi4 = r.kpi4;
+            merged[key].regelingType = r.regelingType;
         }
         for (const b of behandeldiensten) {
-            if (!merged[b.gemeente]) merged[b.gemeente] = { gemeente: b.gemeente };
-            merged[b.gemeente].behandeldienst = b.behandeldienst;
+            const key = b.gemeente.toLowerCase();
+            if (!merged[key]) merged[key] = { gemeente: b.gemeente };
+            merged[key].behandeldienst = b.behandeldienst;
         }
         for (const t of toepasbaar) {
-            if (!merged[t.gemeente]) merged[t.gemeente] = { gemeente: t.gemeente };
-            merged[t.gemeente].aantalRegels = t.aantalRegels;
-            merged[t.gemeente].laatsteWijziging = t.laatsteWijziging;
-            merged[t.gemeente].trSoftware = t.trSoftware;
+            const key = t.gemeente.toLowerCase();
+            if (!merged[key]) merged[key] = { gemeente: t.gemeente };
+            merged[key].aantalRegels = t.aantalRegels;
+            merged[key].laatsteWijziging = t.laatsteWijziging;
+            merged[key].trSoftware = t.trSoftware;
         }
 
         const records = Object.values(merged);
@@ -506,18 +525,23 @@ function parseT1(rows) {
 
         // Push to Google Sheet
         let successCount = 0;
+        let skippedCount = 0;
+
+        // Ensure we only push records that correspond with valid municipalities (prevent API pollution)
+        const validGemeentenKeys = Object.keys(kpiLookup);
+
         for (const record of records) {
-            // Look up static KPI1-3 scores from gemeenteData
-            const staticKpis = kpiLookup[record.gemeente.toLowerCase()] || {};
+            const key = record.gemeente.toLowerCase();
 
-            // Only push if there is actually some meaningful data
-            const hasData = record.kpi4 || record.regelingType || record.behandeldienst || record.aantalRegels || record.laatsteWijziging || record.trSoftware;
-
-            if (!hasData) {
-                // If it's a completely empty record (meaning no Power BI data found), skip it
-                // We keep static KPIs from gemeenteData as a fallback in the app itself, but we don't need to bloat the sheet
+            // Only push if it's a recognized municipality from static data
+            if (!validGemeentenKeys.includes(key)) {
+                // It's a Waterschap, Provincie, Ministerie, or an old merged municipality not in our static list
+                skippedCount++;
                 continue;
             }
+
+            // Look up static KPI1-3 scores from gemeenteData
+            const staticKpis = kpiLookup[key] || {};
 
             const payload = {
                 type: 'Monitor Sync',
