@@ -142,7 +142,28 @@ function setupSheet() {
   sheet5.setColumnWidth(3, 500);
   sheet5.setColumnWidth(4, 250);
   
+  // === SHEET 6: Monitor Data ===
+  var sheet6 = ss.insertSheet("Monitor Data");
+  var monitorHeaders = [
+    ["Gemeente", "KPI1_Mest", "KPI2_Regelanalist", "KPI3_OLO", "KPI4_Omgevingsplan", "Regeling Type", "Behandeldienst", "Aantal Regels", "Laatste Wijziging", "TR Software", "Laatste Update"]
+  ];
+  sheet6.getRange(1, 1, 1, monitorHeaders[0].length).setValues(monitorHeaders).setFontWeight("bold").setBackground("#4285f4").setFontColor("white");
+  
+  // === SHEET 7: Monitor History ===
+  var sheet7 = ss.insertSheet("Monitor History");
+  var historyHeaders = [
+    ["Gemeente", "KPI1_Mest", "KPI2_Regelanalist", "KPI3_OLO", "KPI4_Omgevingsplan", "Laatste Update"]
+  ];
+  sheet7.getRange(1, 1, 1, historyHeaders[0].length).setValues(historyHeaders).setFontWeight("bold").setBackground("#f4b400").setFontColor("white");
+
+  // === SHEET 8: Gemeente Notities ===
+  var sheet8 = ss.insertSheet("Gemeente Notities");
+  var notitiesHeaders = [
+    ["Gemeente", "Datum", "Type", "Notitie", "Link/Contact", "Status", "Fase", "Auteur", "Email Log"]
+  ];
+  sheet8.getRange(1, 1, 1, notitiesHeaders[0].length).setValues(notitiesHeaders).setFontWeight("bold").setBackground("#0f9d58").setFontColor("white");
+
   SpreadsheetApp.flush();
-  Logger.log("✅ Sheet setup complete! Alle 5 tabbladen zijn aangemaakt en gevuld.");
-  SpreadsheetApp.getUi().alert("✅ Setup voltooid!\n\nAlle 5 tabbladen zijn aangemaakt:\n- Algemeen\n- Score Teksten\n- Functie Teksten\n- CTAs\n- Email Teksten\n\nVergeet niet om de sheet te publiceren via Bestand > Delen > Publiceren op het web");
+  Logger.log("✅ Sheet setup complete! Alle 8 tabbladen zijn aangemaakt.");
+  SpreadsheetApp.getUi().alert("✅ Setup voltooid!\n\nAlle benodigde tabbladen zijn aangemaakt:\n- Algemeen\n- Score Teksten\n- Functie Teksten\n- CTAs\n- Email Teksten\n- Monitor Data\n- Monitor History\n- Gemeente Notities\n\nVergeet niet om de sheet te publiceren via Bestand > Delen > Publiceren op het web");
 }

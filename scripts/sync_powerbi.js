@@ -523,19 +523,16 @@ function parseT1(rows) {
         const records = Object.values(merged);
         console.log(`   Total unique gemeenten: ${records.length}`);
 
-        // Push to Google Sheet
-        let successCount = 0;
+        // Push to Google Sheet in a single batch
         let skippedCount = 0;
-
-        // Ensure we only push records that correspond with valid municipalities (prevent API pollution)
         const validGemeentenKeys = Object.keys(kpiLookup);
+        const batchData = [];
 
         for (const record of records) {
             const key = record.gemeente.toLowerCase();
 
             // Only push if it's a recognized municipality from static data
             if (!validGemeentenKeys.includes(key)) {
-                // It's a Waterschap, Provincie, Ministerie, or an old merged municipality not in our static list
                 skippedCount++;
                 continue;
             }
@@ -543,8 +540,7 @@ function parseT1(rows) {
             // Look up static KPI1-3 scores from gemeenteData
             const staticKpis = kpiLookup[key] || {};
 
-            const payload = {
-                type: 'Monitor Sync',
+            batchData.push({
                 gemeente: record.gemeente,
                 kpi1: staticKpis.kpi1 || '',
                 kpi2: staticKpis.kpi2 || '',
@@ -555,24 +551,24 @@ function parseT1(rows) {
                 aantalRegels: String(record.aantalRegels || ''),
                 laatsteWijziging: record.laatsteWijziging || '',
                 trSoftware: record.trSoftware || '',
-            };
-
-            try {
-                await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                successCount++;
-                process.stdout.write('.');
-            } catch {
-                process.stdout.write('x');
-            }
-
-            await new Promise(r => setTimeout(r, 100));
+            });
         }
 
-        console.log(`\n✅ Sync complete! ${successCount}/${records.length} records pushed.`);
+        try {
+            console.log(`\n📤 Sending batch of ${batchData.length} records to Google Apps Script...`);
+            const response = await fetch(WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'Monitor Sync Batch',
+                    data: batchData
+                })
+            });
+            const result = await response.text();
+            console.log(`✅ Sync complete! Server response: ${result}`);
+        } catch (err) {
+            console.error('❌ Error during sync:', err);
+        }
 
     } catch (err) {
         console.error('❌ Error during sync:', err);
