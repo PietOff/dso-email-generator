@@ -327,7 +327,7 @@ function App() {
               Zoek een gemeente om direct de actuele openbare data uit het DSO en Power BI in te zien, zoals het actuele beleid (Omgevingsplan/Voorbeschermingsregels), de gekoppelde behandeldienst en de toepasbare regels.
             </p>
 
-            <div className="relative mb-8 z-20">
+            <div className="relative mb-8 z-50">
               <input
                 type="text"
                 value={searchQuery}
@@ -336,7 +336,7 @@ function App() {
                 className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm md:text-base shadow-sm"
               />
               {searchQuery && !selectedGemeente && (
-                <div className="absolute z-10 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-80 overflow-auto">
+                <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-80 overflow-auto">
                   {filteredGemeenten.map((name) => (
                     <button
                       key={name}
@@ -480,7 +480,7 @@ function App() {
                 <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">1</span>
                 Selecteer Gemeente
               </h2>
-              <div className="relative">
+              <div className="relative z-50">
                 <input
                   type="text"
                   value={searchQuery}
@@ -489,7 +489,7 @@ function App() {
                   className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
                 />
                 {searchQuery && !selectedGemeente && (
-                  <div className="absolute z-10 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-200 max-h-60 overflow-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-xl border border-slate-200 max-h-60 overflow-auto">
                     {filteredGemeenten.map((name) => (
                       <button
                         key={name}
