@@ -125,10 +125,10 @@ function App() {
   }, [notes]);
 
   const filteredGemeenten = useMemo(() => {
-    if (!searchQuery) return gemeenteNames.slice(0, 20);
+    if (!searchQuery) return gemeenteNames;
     return gemeenteNames.filter(n =>
       n.toLowerCase().includes(searchQuery.toLowerCase())
-    ).slice(0, 20);
+    );
   }, [searchQuery, gemeenteNames]);
 
   const selectedData = useMemo(() => {
