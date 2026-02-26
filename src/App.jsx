@@ -3,6 +3,7 @@ import { generateEmail } from './utils/generator';
 import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
+import { overigeData, getAllOverigeNames } from './data/overigeData';
 import DsoMap from './components/DsoMap';
 
 function App() {
@@ -53,7 +54,8 @@ function App() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
 
-  const gemeenteNames = useMemo(() => getAllGemeenteNames(), []);
+  const _gemeenteNames = useMemo(() => getAllGemeenteNames(), []);
+  const gemeenteNames = useMemo(() => [..._gemeenteNames, ...getAllOverigeNames()], [_gemeenteNames]);
 
   const loadContent = async () => {
     setContentStatus('loading');
@@ -131,7 +133,7 @@ function App() {
 
   const selectedData = useMemo(() => {
     if (!selectedGemeente) return null;
-    return gemeenteData.find(g => g.bestuursorgaan === selectedGemeente);
+    return gemeenteData.find(g => g.bestuursorgaan === selectedGemeente) || overigeData.find(o => o.bestuursorgaan === selectedGemeente);
   }, [selectedGemeente]);
 
   const scoreSummary = useMemo(() => {
@@ -161,7 +163,7 @@ function App() {
     }
 
     // Default data from local JSON
-    const data = gemeenteData.find(g => g.bestuursorgaan === name);
+    const data = gemeenteData.find(g => g.bestuursorgaan === name) || overigeData.find(o => o.bestuursorgaan === name);
     let newFigures = { kpi1: '', kpi2: '', kpi3: '', kpi4: '' };
 
     if (data) {
@@ -176,7 +178,7 @@ function App() {
     }
 
     // OVERRIDE with Monitor Data if available (Power BI data synced via Action)
-    const cleanName = name.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+    const cleanName = name.replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
     if (monitorData && monitorData[cleanName]) {
       const m = monitorData[cleanName];
       console.log('Using Monitor Data for', name, m);
@@ -356,7 +358,7 @@ function App() {
                 </h3>
 
                 {(() => {
-                  const cleanSelected = selectedGemeente.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+                  const cleanSelected = selectedGemeente.replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
                   const m = monitorData[cleanSelected];
                   if (!m) return (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">

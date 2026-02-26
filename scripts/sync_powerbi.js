@@ -1,21 +1,45 @@
 import puppeteer from 'puppeteer';
 import { gemeenteData } from '../src/data/gemeenteData.js';
+import { overigeData } from '../src/data/overigeData.js';
 
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyAWP1F-q4ActHk93AYRjmB8VlWBf5DhXTtAt0hrONlbX_CLjpSU9rwmmtBMQgzjnIy/exec';
 const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMTYtOTA4Yy00ZDMyLWFlYzMtODJiZjYyZTk3MjZjIiwidCI6IjUxYzI5NmZjLTQzNTMtNGIxMi1iYjM4LTJmMzlmODQ3MzFkYSIsImMiOjl9';
 
-// Build KPI lookup from static gemeenteData (name without 'gemeente ' prefix → scores)
+// Helper to normalize names
+function cleanEntityName(rawName) {
+    if (!rawName) return '';
+    // Strip "gemeente " prefix, but leave "Provincie ", "Waterschap ", "Omgevingsdienst " intact if they are standardized
+    let name = rawName.replace(/^gemeente\s+/i, '');
+    // Fix CBS variations like (NH.) to (NH)
+    name = name.replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim();
+    return name;
+}
+
+// Build KPI lookup from static gemeenteData and overigeData
 const kpiLookup = {};
 for (const g of gemeenteData) {
-    const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').trim();
+    const naam = cleanEntityName(g.bestuursorgaan);
     if (naam) {
         kpiLookup[naam.toLowerCase()] = {
             kpi1: g.dierlijkeMestScore || '',
             kpi2: g.regelanalistScore || '',
             kpi3: g.scoreOLO || '',
+            type: 'Gemeente'
         };
     }
 }
+for (const o of overigeData) {
+    const naam = cleanEntityName(o.bestuursorgaan);
+    if (naam) {
+        kpiLookup[naam.toLowerCase()] = {
+            kpi1: '',
+            kpi2: '',
+            kpi3: '',
+            type: o.type || 'Overig'
+        };
+    }
+}
+console.log(`📋 Loaded ${Object.keys(kpiLookup).length} valid entities from static KPI data`);
 console.log(`📋 Loaded ${Object.keys(kpiLookup).length} gemeenten from static KPI data`);
 
 // ============================================================================
@@ -292,7 +316,7 @@ function parseR1(rows) {
         const bevoegdGezag = row[0] || '';
         const soort = row[4] || '';
 
-        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
+        const naam = cleanEntityName(bevoegdGezag);
         if (!naam) continue;
 
         const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
@@ -314,7 +338,7 @@ function parseI3(rows) {
     for (const row of rows) {
         const bevoegdGezag = row[2] || '';
         const behandeldienst = row[4] || '';
-        const naam = bevoegdGezag.replace(/^gemeente\s+/i, '').trim();
+        const naam = cleanEntityName(bevoegdGezag);
         if (!naam || !behandeldienst) continue;
         if (!results[naam]) results[naam] = { gemeente: naam, behandeldiensten: {} };
         results[naam].behandeldiensten[behandeldienst] = (results[naam].behandeldiensten[behandeldienst] || 0) + 1;
@@ -345,17 +369,29 @@ function parseT1(rows) {
         const einddatumStr = row[5] || '';
         const trSoftware = row[9] || '';
 
-        const naam = bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
+        const naam = cleanEntityName(bestuursorgaan);
         if (!naam) continue;
+
+        // Helper function to safely parse PowerBI date strings which can be DD-MM-YYYY or YYYY-MM-DD
+        const parseDateString = (dateStr) => {
+            if (!dateStr) return null;
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return null;
+
+            // If the first part is 4 digits, it's YYYY-MM-DD
+            if (parts[0].length === 4) {
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+            // Otherwise assume DD-MM-YYYY
+            else {
+                return new Date(parts[2], parts[1] - 1, parts[0]);
+            }
+        };
 
         // Filter: Check if rule is still active
         if (einddatumStr) {
-            // Power BI dates are usually DD-MM-YYYY in this visual
-            const parts = einddatumStr.split('-');
-            if (parts.length === 3) {
-                const eindDatum = new Date(parts[2], parts[1] - 1, parts[0]);
-                if (eindDatum < now) continue; // Rule has expired
-            }
+            const eindDatum = parseDateString(einddatumStr);
+            if (eindDatum && eindDatum < now) continue; // Rule has expired
         }
 
         if (!results[naam]) {
@@ -371,15 +407,9 @@ function parseT1(rows) {
 
         // Update latest modification date
         if (wijzigingsdatumStr) {
-            const parts = wijzigingsdatumStr.split('-');
-            if (parts.length === 3) {
-                const currentWijziging = new Date(parts[2], parts[1] - 1, parts[0]);
-
-                let existingWijziging = null;
-                if (results[naam].laatsteWijziging) {
-                    const eParts = results[naam].laatsteWijziging.split('-');
-                    existingWijziging = new Date(eParts[2], eParts[1] - 1, eParts[0]);
-                }
+            const currentWijziging = parseDateString(wijzigingsdatumStr);
+            if (currentWijziging) {
+                let existingWijziging = parseDateString(results[naam].laatsteWijziging);
 
                 if (!existingWijziging || currentWijziging > existingWijziging) {
                     results[naam].laatsteWijziging = wijzigingsdatumStr;
@@ -494,7 +524,7 @@ function parseT1(rows) {
         // PREPOPULATE ALL 342 MUNICIPALITIES
         // This ensures no municipality is ever "missing" from the map/sheet
         for (const g of gemeenteData) {
-            const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').trim();
+            const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim();
             if (naam) {
                 const key = naam.toLowerCase();
                 merged[key] = { gemeente: naam };
@@ -521,7 +551,7 @@ function parseT1(rows) {
         }
 
         const records = Object.values(merged);
-        console.log(`   Total unique gemeenten: ${records.length}`);
+        console.log(`   Total unique entities locally merged: ${records.length}`);
 
         // Push to Google Sheet in a single batch
         let skippedCount = 0;
@@ -531,17 +561,17 @@ function parseT1(rows) {
         for (const record of records) {
             const key = record.gemeente.toLowerCase();
 
-            // Only push if it's a recognized municipality from static data
+            // Only push if it's a recognized municipality or other entity from static data
             if (!validGemeentenKeys.includes(key)) {
                 skippedCount++;
                 continue;
             }
 
-            // Look up static KPI1-3 scores from gemeenteData
+            // Look up static KPI1-3 scores from kpiLookup
             const staticKpis = kpiLookup[key] || {};
 
             batchData.push({
-                gemeente: record.gemeente,
+                gemeente: record.gemeente, // Keeping 'gemeente' key for backwards compatibility in spreadsheet
                 kpi1: staticKpis.kpi1 || '',
                 kpi2: staticKpis.kpi2 || '',
                 kpi3: staticKpis.kpi3 || '',
