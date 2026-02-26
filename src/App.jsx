@@ -475,7 +475,7 @@ function App() {
 
           <div className="lg:col-span-3 space-y-6">
 
-            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
+            <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60 relative z-50">
               <h2 className="text-lg font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm font-bold">1</span>
                 Selecteer Gemeente
