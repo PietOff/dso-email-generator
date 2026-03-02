@@ -10,6 +10,8 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,11 +21,21 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install Puppeteer system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libatk-bridge2.0-0 libx11-xcb1 libxcb-dri3-0 \
+            libdrm2 libgbm1 libasound2 libxshmfence1 libxrandr2 \
+            libpangocairo-1.0-0 libgtk-3-0 libxdamage1 libxcomposite1 \
+            libatspi2.0-0 libcups2 fonts-liberation
+
       - name: Install dependencies
         run: npm install
 
       - name: Run Sync Script
         run: npm run sync
-        continue-on-error: true
+        timeout-minutes: 10
         env:
           CI: true
+          PUPPETEER_ARGS: "--no-sandbox --disable-setuid-sandbox"

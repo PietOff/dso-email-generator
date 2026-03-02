@@ -164,7 +164,7 @@ function App() {
 
     // Default data from local JSON
     const data = gemeenteData.find(g => g.bestuursorgaan === name) || overigeData.find(o => o.bestuursorgaan === name);
-    let newFigures = { kpi1: '', kpi2: '', kpi3: '', kpi4: '' };
+    let newFigures = { kpi1: '', kpi2: '', kpi3: '', kpi4: '', kpi5: '', kpi6: '' };
 
     if (data) {
       const regelScore = data.regelanalistScore;
@@ -178,7 +178,7 @@ function App() {
     }
 
     // OVERRIDE with Monitor Data if available (Power BI data synced via Action)
-    const cleanName = name.replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
+    const cleanName = name.replace(/[’'‘]/g, "'").replace(/^gemeente\s+/i, '').replace(/^'s\s+/i, "'s-").replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
     if (monitorData && monitorData[cleanName]) {
       const m = monitorData[cleanName];
       console.log('Using Monitor Data for', name, m);
@@ -186,9 +186,13 @@ function App() {
       if (m.kpi2) newFigures.kpi2 = m.kpi2;
       if (m.kpi3) newFigures.kpi3 = m.kpi3;
       if (m.kpi4) newFigures.kpi4 = m.kpi4;
+      if (m.kpi5) newFigures.kpi5 = m.kpi5;
+      if (m.kpi6) newFigures.kpi6 = m.kpi6;
 
       // Override kpi4 with regelingType priority if available in monitor
       if (m.kpi4) newFigures.kpi4 = m.kpi4;
+    } else if (cleanName) {
+      console.warn('⚠️ No monitor data found for:', name, '(cleaned:', cleanName, ')');
     }
 
     setFigures(newFigures);
@@ -358,7 +362,7 @@ function App() {
                 </h3>
 
                 {(() => {
-                  const cleanSelected = selectedGemeente.replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
+                  const cleanSelected = selectedGemeente.replace(/[’'‘]/g, "'").replace(/^gemeente\s+/i, '').replace(/^'s\s+/i, "'s-").replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
                   const m = monitorData[cleanSelected];
                   if (!m) return (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200">
@@ -417,6 +421,14 @@ function App() {
                           <div className="bg-white p-3 rounded-lg border border-slate-100">
                             <div className="text-xs text-slate-500">KPI4: Omgevingsplan</div>
                             <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi4 || '-'}</div>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI5: Ontwerpen</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi5 || '-'}</div>
+                          </div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100">
+                            <div className="text-xs text-slate-500">KPI6: BOPA's</div>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{figures.kpi6 || '-'}</div>
                           </div>
                         </div>
                         {gemeenteFase && (

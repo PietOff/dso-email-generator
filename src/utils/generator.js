@@ -48,12 +48,14 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         const entry = emailTeksten[key];
         if (!entry) return fallback;
         const raw = isInformeel ? (entry.informeel || entry.professioneel) : entry.professioneel;
-        // Replace placeholders: {gemeente}, {type}, {software}, {behandeldienst}
+        // Replace placeholders: {gemeente}, {type}, {software}, {behandeldienst}, {ontwerpen}, {bopas}
         return raw
             .replace(/\{gemeente\}/g, gemeenteNaam)
             .replace(/\{type\}/g, monitorEnriched?.regelingType || '')
             .replace(/\{software\}/g, monitorEnriched?.trSoftware ? ` via ${monitorEnriched.trSoftware}` : '')
-            .replace(/\{behandeldienst\}/g, monitorEnriched?.behandeldienst || '');
+            .replace(/\{behandeldienst\}/g, monitorEnriched?.behandeldienst || '')
+            .replace(/\{ontwerpen\}/g, monitorEnriched?.kpi5 || '0')
+            .replace(/\{bopas\}/g, monitorEnriched?.kpi6 || '0');
     };
 
     // --- Greeting ---
@@ -127,6 +129,19 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
             const bdExtra = txt('service_bridge_behandeldienst');
             if (bdExtra) bridge += '\n\n' + bdExtra;
         }
+
+        // --- Lead Indicators (Designs / BOPA's) ---
+        const ontwerpen = parseInt(monitorEnriched.kpi5) || 0;
+        const bopas = parseInt(monitorEnriched.kpi6) || 0;
+        if (ontwerpen > 0 || bopas > 0) {
+            let leadText = '';
+            if (ontwerpen > 0 && bopas > 0) leadText = txt('situatie_lead_beide');
+            else if (ontwerpen > 0) leadText = txt('situatie_lead_ontwerpen');
+            else leadText = txt('situatie_lead_bopa');
+
+            if (leadText) parts.push(leadText);
+        }
+
         parts.push(bridge);
 
         return parts.join('\n\n');

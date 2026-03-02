@@ -8,11 +8,20 @@ const POWER_BI_URL = 'https://app.fabric.microsoft.com/view?r=eyJrIjoiMzg1ZTYwMT
 // Helper to normalize names
 function cleanEntityName(rawName) {
     if (!rawName) return '';
-    // Strip "gemeente " prefix, but leave "Provincie ", "Waterschap ", "Omgevingsdienst " intact if they are standardized
-    let name = rawName.replace(/^gemeente\s+/i, '');
+    // Standardize apostrophes (smart quotes to straight quotes)
+    let name = rawName.replace(/[’'‘]/g, "'");
+    // Strip "gemeente " prefix
+    name = name.replace(/^gemeente\s+/i, '');
+    // Standardize "'s-" (ensure no space after 's)
+    name = name.replace(/^'s\s+/i, "'s-");
     // Fix CBS variations like (NH.) to (NH)
     name = name.replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim();
     return name;
+}
+
+// Strict normalization for keys (strips all non-alphanumeric)
+function normalizeKey(s) {
+    return (s || '').toString().toLowerCase().replace(/[’'‘]/g, "'").replace(/^'s\s+/i, "'s-").replace(/\s+/g, '').replace(/[^\w]/g, '');
 }
 
 // Build KPI lookup from static gemeenteData and overigeData
@@ -20,7 +29,7 @@ const kpiLookup = {};
 for (const g of gemeenteData) {
     const naam = cleanEntityName(g.bestuursorgaan);
     if (naam) {
-        kpiLookup[naam.toLowerCase()] = {
+        kpiLookup[normalizeKey(naam)] = {
             kpi1: g.dierlijkeMestScore || '',
             kpi2: g.regelanalistScore || '',
             kpi3: g.scoreOLO || '',
@@ -31,7 +40,7 @@ for (const g of gemeenteData) {
 for (const o of overigeData) {
     const naam = cleanEntityName(o.bestuursorgaan);
     if (naam) {
-        kpiLookup[naam.toLowerCase()] = {
+        kpiLookup[normalizeKey(naam)] = {
             kpi1: '',
             kpi2: '',
             kpi3: '',
@@ -40,7 +49,6 @@ for (const o of overigeData) {
     }
 }
 console.log(`📋 Loaded ${Object.keys(kpiLookup).length} valid entities from static KPI data`);
-console.log(`📋 Loaded ${Object.keys(kpiLookup).length} gemeenten from static KPI data`);
 
 // ============================================================================
 // APPROACH: Network Interception
@@ -308,6 +316,7 @@ async function scrollVisuals(page, captured) {
 function parseR1(rows) {
     if (rows.length > 0) {
         console.log('    🔍 R1 Sample Row [0]:', JSON.stringify(rows[0]));
+        console.log('    🔍 R1 Debug: col0 (BG)=', rows[0][0], '| col4 (Soort)=', rows[0][4]);
     }
     const results = {};
     for (const row of rows) {
@@ -319,7 +328,14 @@ function parseR1(rows) {
         const naam = cleanEntityName(bevoegdGezag);
         if (!naam) continue;
 
-        const priority = { 'Omgevingsplan': 1, 'Omgevingsvisie': 2, 'Voorbeschermingsregels': 3, 'Voorbereidingsbesluit': 4 };
+        const priority = {
+            'Omgevingsplan': 1,
+            'Omgevingsverordening': 1,
+            'Waterschapsverordening': 1,
+            'Omgevingsvisie': 2,
+            'Voorbeschermingsregels': 3,
+            'Voorbereidingsbesluit': 4
+        };
         const currentPriority = priority[soort] || 5;
         const existingPriority = results[naam]?.priority || 99;
 
@@ -349,9 +365,42 @@ function parseI3(rows) {
     });
 }
 
+function parseR2(rows) {
+    if (rows.length > 0) {
+        console.log('    🔍 R2 Sample Row [0]:', JSON.stringify(rows[0]));
+    }
+    const results = {};
+    for (const row of rows) {
+        // [0] Bevoegd gezag
+        // Count occurrences per BG
+        const bevoegdGezag = row[0] || '';
+        const naam = cleanEntityName(bevoegdGezag);
+        if (!naam) continue;
+        results[naam] = (results[naam] || 0) + 1;
+    }
+    return Object.entries(results).map(([naam, count]) => ({ gemeente: naam, ontwerpCount: count }));
+}
+
+function parseR3(rows) {
+    if (rows.length > 0) {
+        console.log('    🔍 R3 Sample Row [0]:', JSON.stringify(rows[0]));
+    }
+    const results = {};
+    for (const row of rows) {
+        // [0] Bevoegd gezag
+        // Count occurrences per BG
+        const bevoegdGezag = row[0] || '';
+        const naam = cleanEntityName(bevoegdGezag);
+        if (!naam) continue;
+        results[naam] = (results[naam] || 0) + 1;
+    }
+    return Object.entries(results).map(([naam, count]) => ({ gemeente: naam, bopaCount: count }));
+}
+
 function parseT1(rows) {
     if (rows.length > 0) {
         console.log('    🔍 T1 Sample Row [0]:', JSON.stringify(rows[0]));
+        console.log('    🔍 T1 Debug: col0 (BG)=', rows[0][0], '| col3 (Datum)=', rows[0][3], '| col9 (SW)=', rows[0][9]);
     }
     const results = {};
     const now = new Date();
@@ -375,7 +424,7 @@ function parseT1(rows) {
         // Helper function to safely parse PowerBI date strings which can be DD-MM-YYYY or YYYY-MM-DD
         const parseDateString = (dateStr) => {
             if (!dateStr) return null;
-            const parts = dateStr.split('-');
+            const parts = dateStr.split(/[-/]/);
             if (parts.length !== 3) return null;
 
             // If the first part is 4 digits, it's YYYY-MM-DD
@@ -518,36 +567,71 @@ function parseT1(rows) {
         console.log(`   Parsed ${toepasbaar.length} gemeenten`);
 
         // =====================
+        // SCRAPE R2: Ontwerpen
+        // =====================
+        console.log('\n📊 [R2] Scraping Ontwerpregelingen...');
+        captured.queries = [];
+        await navigateToPage(page, 'R2.', captured);
+        await scrollVisuals(page, captured);
+        const r2Rows = extractRowsFromQueryData(captured.queries);
+        console.log(`   Found ${r2Rows.length} raw rows from API`);
+        const ontwerpen = parseR2(r2Rows);
+        console.log(`   Parsed ${ontwerpen.length} gemeenten`);
+
+        // =====================
+        // SCRAPE R3: BOPA's
+        // =====================
+        console.log('\n📊 [R3] Scraping Kennisgevingen (BOPA)...');
+        captured.queries = [];
+        await navigateToPage(page, 'R3.', captured);
+        await scrollVisuals(page, captured);
+        const r3Rows = extractRowsFromQueryData(captured.queries);
+        console.log(`   Found ${r3Rows.length} raw rows from API`);
+        const bopas = parseR3(r3Rows);
+        console.log(`   Parsed ${bopas.length} gemeenten`);
+
+        // =====================
         console.log('\n☁️ Merging and syncing to Google Sheet...');
         const merged = {};
 
-        // PREPOPULATE ALL 342 MUNICIPALITIES
-        // This ensures no municipality is ever "missing" from the map/sheet
-        for (const g of gemeenteData) {
-            const naam = (g.bestuursorgaan || '').replace(/^gemeente\s+/i, '').replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim();
+        // PREPOPULATE ALL TARGET ENTITIES (Municipalities, Provinces, Water Boards, ODs)
+        // This ensures no entity is ever "missing" from the map/sheet/app
+        const allEntities = [...gemeenteData, ...overigeData];
+        for (const g of allEntities) {
+            const naam = cleanEntityName(g.bestuursorgaan);
             if (naam) {
-                const key = naam.toLowerCase();
+                const key = normalizeKey(naam);
                 merged[key] = { gemeente: naam };
             }
         }
 
         for (const r of regelingen) {
-            const key = r.gemeente.toLowerCase();
+            const key = normalizeKey(r.gemeente);
             if (!merged[key]) merged[key] = { gemeente: r.gemeente };
             merged[key].kpi4 = r.kpi4;
             merged[key].regelingType = r.regelingType;
         }
         for (const b of behandeldiensten) {
-            const key = b.gemeente.toLowerCase();
+            const key = normalizeKey(b.gemeente);
             if (!merged[key]) merged[key] = { gemeente: b.gemeente };
             merged[key].behandeldienst = b.behandeldienst;
         }
         for (const t of toepasbaar) {
-            const key = t.gemeente.toLowerCase();
+            const key = normalizeKey(t.gemeente);
             if (!merged[key]) merged[key] = { gemeente: t.gemeente };
             merged[key].aantalRegels = t.aantalRegels;
             merged[key].laatsteWijziging = t.laatsteWijziging;
             merged[key].trSoftware = t.trSoftware;
+        }
+        for (const o of ontwerpen) {
+            const key = normalizeKey(o.gemeente);
+            if (!merged[key]) merged[key] = { gemeente: o.gemeente };
+            merged[key].ontwerpCount = o.ontwerpCount;
+        }
+        for (const b of bopas) {
+            const key = normalizeKey(b.gemeente);
+            if (!merged[key]) merged[key] = { gemeente: b.gemeente };
+            merged[key].bopaCount = b.bopaCount;
         }
 
         const records = Object.values(merged);
@@ -559,7 +643,7 @@ function parseT1(rows) {
         const batchData = [];
 
         for (const record of records) {
-            const key = record.gemeente.toLowerCase();
+            const key = normalizeKey(record.gemeente);
 
             // Only push if it's a recognized municipality or other entity from static data
             if (!validGemeentenKeys.includes(key)) {
@@ -571,11 +655,13 @@ function parseT1(rows) {
             const staticKpis = kpiLookup[key] || {};
 
             batchData.push({
-                gemeente: record.gemeente, // Keeping 'gemeente' key for backwards compatibility in spreadsheet
+                gemeente: record.gemeente,
                 kpi1: staticKpis.kpi1 || '',
                 kpi2: staticKpis.kpi2 || '',
                 kpi3: staticKpis.kpi3 || '',
                 kpi4: record.kpi4 || '',
+                kpi5: String(record.ontwerpCount || '0'),
+                kpi6: String(record.bopaCount || '0'),
                 regelingType: record.regelingType || '',
                 behandeldienst: record.behandeldienst || '',
                 aantalRegels: String(record.aantalRegels || ''),

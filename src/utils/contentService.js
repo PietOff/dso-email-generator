@@ -201,23 +201,41 @@ export async function fetchMonitorData() {
         const text = await res.text();
         const rows = parseGoogleJson(text);
 
-        // Convert to look-up object by Gemeente (lowercase, without 'Gemeente ' prefix)
+        // Convert to look-up object by Gemeente (lowercase, with parentheses cleaning)
         const data = {};
         rows.forEach(row => {
-            const naam = row['Gemeente'] || '';
+            const naam = row['Gemeente'] || row['gemeente'] || '';
             if (naam) {
-                const cleanName = naam.replace(/^gemeente\s+/i, '').trim().toLowerCase();
+                // Consistent parsing with App.jsx and sync_powerbi.js
+                const cleanName = naam.replace(/[’'‘]/g, "'").replace(/^gemeente\s+/i, '').replace(/^'s\s+/i, "'s-").replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
+
+                // Helper to get value case-insensitively if needed
+                const getVal = (possibleKeys) => {
+                    for (const k of possibleKeys) {
+                        if (row[k] !== undefined) return row[k];
+                    }
+                    // Try lowercase fallback if not found
+                    const rowLower = {};
+                    Object.keys(row).forEach(k => rowLower[k.toLowerCase()] = row[k]);
+                    for (const k of possibleKeys) {
+                        if (rowLower[k.toLowerCase()] !== undefined) return rowLower[k.toLowerCase()];
+                    }
+                    return '';
+                };
+
                 data[cleanName] = {
-                    kpi1: row['KPI1_Mest'] || '',
-                    kpi2: row['KPI2_Regelanalist'] || '',
-                    kpi3: row['KPI3_OLO'] || '',
-                    kpi4: row['KPI4_Omgevingsplan'] || '',
-                    regelingType: row['Regeling Type'] || row['Stadium'] || '',
-                    behandeldienst: row['Behandeldienst'] || row['Dienstverband'] || '',
-                    aantalRegels: row['Aantal Regels'] || row['Aantal TR'] || '',
-                    laatsteWijziging: row['Laatste Wijziging'] || row['Versie'] || '',
-                    trSoftware: row['TR Software'] || '',
-                    lastUpdate: row['Laatste Update'] || ''
+                    kpi1: getVal(['KPI1_Mest', 'kpi1']),
+                    kpi2: getVal(['KPI2_Regelanalist', 'kpi2']),
+                    kpi3: getVal(['KPI3_OLO', 'kpi3']),
+                    kpi4: getVal(['KPI4_Omgevingsplan', 'kpi4']),
+                    kpi5: getVal(['KPI5_Ontwerp', 'kpi5']),
+                    kpi6: getVal(['KPI6_BOPA', 'kpi6']),
+                    regelingType: getVal(['Regeling Type', 'RegelingType', 'Stadium', 'stadium']),
+                    behandeldienst: getVal(['Behandeldienst', 'behandeldienst', 'Dienstverband']),
+                    aantalRegels: getVal(['Aantal Regels', 'AantalRegels', 'Aantal TR', 'aantal_regels']),
+                    laatsteWijziging: getVal(['Laatste Wijziging', 'LaatsteWijziging', 'Versie', 'versie', 'datum']),
+                    trSoftware: getVal(['TR Software', 'trSoftware', 'Software']),
+                    lastUpdate: getVal(['Laatste Update', 'lastUpdate'])
                 };
             }
         });
@@ -320,7 +338,8 @@ export async function fetchMonitorHistory() {
         const historyMap = {};
 
         rows.forEach(row => {
-            const cleanGem = (row['Gemeente'] || '').replace(/^gemeente\s+/i, '').trim().toLowerCase();
+            const rawGem = row['Gemeente'] || row['gemeente'] || '';
+            const cleanGem = rawGem.replace(/[’'‘]/g, "'").replace(/^gemeente\s+/i, '').replace(/^'s\s+/i, "'s-").replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim().toLowerCase();
             if (!cleanGem) return;
 
             const getKpiScoreStr = (val) => {
@@ -329,11 +348,25 @@ export async function fetchMonitorHistory() {
                 return isNaN(v) ? null : v;
             };
 
+            const getVal = (possibleKeys) => {
+                for (const k of possibleKeys) {
+                    if (row[k] !== undefined) return row[k];
+                }
+                const rowLower = {};
+                Object.keys(row).forEach(k => rowLower[k.toLowerCase()] = row[k]);
+                for (const k of possibleKeys) {
+                    if (rowLower[k.toLowerCase()] !== undefined) return rowLower[k.toLowerCase()];
+                }
+                return null;
+            };
+
             const validScores = [
-                getKpiScoreStr(row['KPI1_Mest']),
-                getKpiScoreStr(row['KPI2_Regelanalist']),
-                getKpiScoreStr(row['KPI3_OLO']),
-                getKpiScoreStr(row['KPI4_Omgevingsplan'])
+                getKpiScoreStr(getVal(['KPI1_Mest', 'kpi1'])),
+                getKpiScoreStr(getVal(['KPI2_Regelanalist', 'kpi2'])),
+                getKpiScoreStr(getVal(['KPI3_OLO', 'kpi3'])),
+                getKpiScoreStr(getVal(['KPI4_Omgevingsplan', 'kpi4'])),
+                getKpiScoreStr(getVal(['KPI5_Ontwerp', 'kpi5'])),
+                getKpiScoreStr(getVal(['KPI6_BOPA', 'kpi6']))
             ].filter(s => s !== null && s !== -1);
 
             if (validScores.length === 0) return;

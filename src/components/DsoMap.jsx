@@ -28,7 +28,7 @@ export default function DsoMap({ monitorData, historyData, gemeenteData, selecte
         if (!gemeenteData) return dataByCity;
 
         gemeenteData.forEach(g => {
-            const cleanName = g.bestuursorgaan.replace(/^gemeente\s+/i, '').trim();
+            const cleanName = g.bestuursorgaan.replace(/[’'‘]/g, "'").replace(/^gemeente\s+/i, '').replace(/^'s\s+/i, "'s-").replace(/\(\s*([A-Za-z]+)\.\s*\)/g, '($1)').trim();
             const lowerName = cleanName.toLowerCase();
             const m = monitorData && monitorData[lowerName] ? monitorData[lowerName] : {};
 
@@ -53,11 +53,11 @@ export default function DsoMap({ monitorData, historyData, gemeenteData, selecte
                 behandeldienst: m.behandeldienst || '',
                 software: m.trSoftware || '',
                 contactpersonen: g.contactpersonen || [],
-                history: historyData && historyData[cleanName] ? historyData[cleanName] : []
+                history: historyData && historyData[cleanName.toLowerCase()] ? historyData[cleanName.toLowerCase()] : []
             };
         });
         return dataByCity;
-    }, [monitorData, gemeenteData]);
+    }, [monitorData, gemeenteData, historyData]);
 
     // 2. Color Scales
     const colorScale = useMemo(() => {
