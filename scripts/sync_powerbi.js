@@ -19,9 +19,17 @@ function cleanEntityName(rawName) {
     return name;
 }
 
-// Strict normalization for keys (strips all non-alphanumeric)
+// Strict normalization for keys — keeps parenthetical qualifiers like (NH) and (L)
 function normalizeKey(s) {
-    return (s || '').toString().toLowerCase().replace(/[’'‘]/g, "'").replace(/^'s\s+/i, "'s-").replace(/\s+/g, '').replace(/[^\w]/g, '');
+    let key = (s || '').toString();
+    key = key.replace(/[\u2019'\u2018]/g, "'");
+    key = key.replace(/^'s\s+/i, "'s-");
+    const parenMatch = key.match(/\(([^)]+)\)/);
+    const qualifier = parenMatch ? parenMatch[1].replace(/\./g, '').toLowerCase() : '';
+    key = key.replace(/\([^)]*\)/g, '');
+    key = key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (qualifier) key += qualifier;
+    return key;
 }
 
 // Build KPI lookup from static gemeenteData and overigeData
