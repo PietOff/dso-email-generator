@@ -315,11 +315,59 @@ export async function logEmailGenerated(gemeente, contactNaam, contactFunctie, d
     }
 }
 
+// Cache for contacts (5 min)
+let contactsCache = null;
+let contactsCacheTimestamp = 0;
+const CONTACTS_CACHE_TTL = 5 * 60 * 1000;
+
+/**
+ * Fetch contact persons from the "Contactpersonen" tab in Google Sheets
+ * Returns: { "gemeente Amsterdam": [{naam, functie, email, telefoon, notities}], ... }
+ */
+export async function fetchContacts() {
+    if (contactsCache && (Date.now() - contactsCacheTimestamp < CONTACTS_CACHE_TTL)) {
+        return contactsCache;
+    }
+
+    try {
+        const res = await fetch(sheetUrl('Contactpersonen'));
+        const text = await res.text();
+        const rows = parseGoogleJson(text);
+
+        const data = {};
+        rows.forEach(row => {
+            const org = row['Organisatie'] || row['organisatie'] || '';
+            if (!org) return;
+
+            const key = org.toLowerCase().trim();
+            if (!data[key]) data[key] = [];
+
+            data[key].push({
+                naam: row['Naam'] || row['naam'] || '',
+                functie: row['Functie'] || row['functie'] || '',
+                email: row['Email'] || row['email'] || '',
+                telefoon: row['Telefoon'] || row['telefoon'] || '',
+                notities: row['Notities'] || row['notities'] || ''
+            });
+        });
+
+        contactsCache = data;
+        contactsCacheTimestamp = Date.now();
+        console.log(`📇 Loaded ${rows.length} contacts for ${Object.keys(data).length} organisations`);
+        return data;
+    } catch (err) {
+        console.warn('Failed to fetch contacts:', err);
+        return {};
+    }
+}
+
 export function clearContentCache() {
     contentCache = null;
     cacheTimestamp = 0;
     notesCache = null;
     notesCacheTimestamp = 0;
+    contactsCache = null;
+    contactsCacheTimestamp = 0;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory, fetchContacts } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 import { overigeData, getAllOverigeNames } from './data/overigeData';
@@ -29,6 +29,7 @@ function App() {
   const [contentStatus, setContentStatus] = useState('loading');
   const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
+  const [contacts, setContacts] = useState([]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -203,6 +204,20 @@ function App() {
     setEmailLog(notesData.emailLog);
     setGemeenteStatus(notesData.status);
     setGemeenteFase(notesData.fase);
+
+    // Load contacts from Google Sheet (with fallback to hardcoded data)
+    try {
+      const sheetContacts = await fetchContacts();
+      const key = name.toLowerCase().trim();
+      if (sheetContacts[key] && sheetContacts[key].length > 0) {
+        setContacts(sheetContacts[key]);
+      } else {
+        // Fallback to hardcoded contactpersonen
+        setContacts(data?.contactpersonen || []);
+      }
+    } catch {
+      setContacts(data?.contactpersonen || []);
+    }
   };
 
   const handleAddNote = async () => {
@@ -537,7 +552,7 @@ function App() {
                       Score: {selectedData.totaleScore}/20 {scoreSummary.total >= 15 ? '(veel kansen)' : scoreSummary.total >= 8 ? '(enkele kansen)' : '(goed op weg)'}
                     </span>
                     <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                      {selectedData.contactpersonen?.length || 0} contactpersonen
+                      {contacts.length || 0} contactpersonen
                     </span>
                   </div>
                   {scoreSummary.opportunities.length > 0 && (
@@ -678,7 +693,7 @@ function App() {
 
           <div className="lg:col-span-2 space-y-6">
 
-            {selectedData && selectedData.contactpersonen && selectedData.contactpersonen.length > 0 && (
+            {selectedData && contacts.length > 0 && (
               <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/60">
                 <h2 className="text-lg font-bold text-slate-800 mb-1">👤 Aan wie is de email gericht?</h2>
                 <p className="text-xs text-slate-400 mb-3">Optioneel — klik op een contact om de email te personaliseren</p>
@@ -687,11 +702,12 @@ function App() {
                     <span className="text-sm font-medium text-slate-700">Algemeen (geen specifiek persoon)</span>
                     {selectedContact === null && <span className="text-xs text-blue-600">✓</span>}
                   </button>
-                  {selectedData.contactpersonen.map((contact, i) => (
+                  {contacts.map((contact, i) => (
                     <button key={i} onClick={() => setSelectedContact(contact)} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg gap-2 text-left transition-all ${selectedContact && selectedContact.naam === contact.naam ? 'bg-blue-50 border border-blue-200 ring-1 ring-blue-300' : 'bg-slate-50 hover:bg-slate-100'}`}>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-slate-700">{contact.naam}</span>
                         {contact.functie && <span className="text-xs text-slate-400">{contact.functie}</span>}
+                        {contact.email && <span className="text-xs text-blue-400">✉ {contact.email}</span>}
                       </div>
                       {selectedContact && selectedContact.naam === contact.naam && <span className="text-xs text-blue-600">✓</span>}
                     </button>
