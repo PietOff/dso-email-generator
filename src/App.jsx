@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { generateEmail } from './utils/generator';
-import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory, fetchContacts } from './utils/contentService';
+import { fetchContent, clearContentCache, fetchNotes, addNote, logEmailGenerated, getGoogleSheetUrl, fetchMonitorData, fetchMonitorHistory, fetchContacts, updateContactNote } from './utils/contentService';
 import { calculateScore } from './utils/emailScorer';
 import { gemeenteData, getAllGemeenteNames } from './data/gemeenteData';
 import { overigeData, getAllOverigeNames } from './data/overigeData';
@@ -30,6 +30,8 @@ function App() {
   const [syncing, setSyncing] = useState(false);
   const [notes, setNotes] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [editingContactNote, setEditingContactNote] = useState(null); // { index, value }
+  const [savingContactNote, setSavingContactNote] = useState(false);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -703,14 +705,66 @@ function App() {
                     {selectedContact === null && <span className="text-xs text-blue-600">✓</span>}
                   </button>
                   {contacts.map((contact, i) => (
-                    <button key={i} onClick={() => setSelectedContact(contact)} className={`w-full flex items-center justify-between px-3 py-2 rounded-lg gap-2 text-left transition-all ${selectedContact && selectedContact.naam === contact.naam ? 'bg-blue-50 border border-blue-200 ring-1 ring-blue-300' : 'bg-slate-50 hover:bg-slate-100'}`}>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-slate-700">{contact.naam}</span>
-                        {contact.functie && <span className="text-xs text-slate-400">{contact.functie}</span>}
-                        {contact.email && <span className="text-xs text-blue-400">✉ {contact.email}</span>}
+                    <div key={i} className="space-y-1">
+                      <div className={`w-full flex items-center justify-between px-3 py-2 rounded-lg gap-2 text-left transition-all cursor-pointer ${selectedContact && selectedContact.naam === contact.naam ? 'bg-blue-50 border border-blue-200 ring-1 ring-blue-300' : 'bg-slate-50 hover:bg-slate-100'}`}
+                        onClick={() => setSelectedContact(contact)}>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-sm font-medium text-slate-700">{contact.naam}</span>
+                          {contact.functie && <span className="text-xs text-slate-400">{contact.functie}</span>}
+                          {contact.email && <span className="text-xs text-blue-400">✉ {contact.email}</span>}
+                          {contact.notities && editingContactNote?.index !== i && <span className="text-xs text-amber-600 italic">📝 {contact.notities}</span>}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setEditingContactNote(editingContactNote?.index === i ? null : { index: i, value: contact.notities || '' }); }}
+                            className="p-1 rounded hover:bg-slate-200 transition-colors" title="Notitie bewerken">
+                            <span className="text-sm">📝</span>
+                          </button>
+                          {selectedContact && selectedContact.naam === contact.naam && <span className="text-xs text-blue-600">✓</span>}
+                        </div>
                       </div>
-                      {selectedContact && selectedContact.naam === contact.naam && <span className="text-xs text-blue-600">✓</span>}
-                    </button>
+                      {editingContactNote?.index === i && (
+                        <div className="flex gap-1 px-2 pb-1">
+                          <input
+                            type="text"
+                            value={editingContactNote.value}
+                            onChange={(e) => setEditingContactNote({ index: i, value: e.target.value })}
+                            placeholder="Notitie over dit contact..."
+                            className="flex-1 text-xs px-2 py-1.5 rounded-lg border border-slate-200 focus:border-blue-300 focus:ring-1 focus:ring-blue-200 outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                setSavingContactNote(true);
+                                updateContactNote(selectedGemeente, contact.naam, editingContactNote.value).then(() => {
+                                  const updated = [...contacts];
+                                  updated[i] = { ...updated[i], notities: editingContactNote.value };
+                                  setContacts(updated);
+                                  setEditingContactNote(null);
+                                  setSavingContactNote(false);
+                                });
+                              }
+                              if (e.key === 'Escape') setEditingContactNote(null);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            disabled={savingContactNote}
+                            onClick={() => {
+                              setSavingContactNote(true);
+                              updateContactNote(selectedGemeente, contact.naam, editingContactNote.value).then(() => {
+                                const updated = [...contacts];
+                                updated[i] = { ...updated[i], notities: editingContactNote.value };
+                                setContacts(updated);
+                                setEditingContactNote(null);
+                                setSavingContactNote(false);
+                              });
+                            }}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                            {savingContactNote ? '...' : '✓'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

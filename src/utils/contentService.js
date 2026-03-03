@@ -361,6 +361,32 @@ export async function fetchContacts() {
     }
 }
 
+/**
+ * Update a contact person's note in the "Contactpersonen" Sheet tab
+ */
+export async function updateContactNote(organisatie, naam, notitie) {
+    try {
+        await fetch(WEB_APP_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'Contactpersoon Notitie',
+                organisatie,
+                naam,
+                notitie
+            }),
+        });
+        // Clear contacts cache to force refresh
+        contactsCache = null;
+        contactsCacheTimestamp = 0;
+        return true;
+    } catch (err) {
+        console.error('Failed to update contact note:', err);
+        return false;
+    }
+}
+
 export function clearContentCache() {
     contentCache = null;
     cacheTimestamp = 0;
