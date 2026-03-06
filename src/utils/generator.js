@@ -11,7 +11,6 @@
  * - AbelTalent: Capacity solutions & talent for fysieke leefomgeving.
  * - Tafelberg Advies (partner): Expert in regelanalyse, omgevingsplan, toepasbare regels.
  */
-import { enhanceAllEmails } from './groqEnhancer';
 
 /**
  * Generate a personalized email
@@ -326,11 +325,34 @@ export const generateEmail = async (baseStory, figures, options, selectedData, s
               gemeente: gemeenteNaam
       };
 
+      const enhancementContext = {
+              tone: isInformeel ? 'informal' : 'professional',
+              recipientName: selectedContact?.naam || '',
+              gemeente: gemeenteNaam
+      };
+
       try {
-              const enhancedEmails = await enhanceAllEmails(emailsBeforeEnhancement, enhancementContext);
+              // Call the server-side API endpoint for GROQ enhancement
+        const response = await fetch('/api/enhanceEmails', {
+                  method: 'POST',
+                  headers: {
+                              'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                              emails: emailsBeforeEnhancement,
+                              context: enhancementContext,
+                  }),
+        });
+
+        if (!response.ok) {
+                  console.error('Enhancement API error:', response.status);
+                  return emailsBeforeEnhancement;
+        }
+
+        const enhancedEmails = await response.json();
               return enhancedEmails;
       } catch (error) {
-              console.error('Error during GROQ enhancement, returning original emails:', error);
+              console.error('Error calling enhancement API:', error);
               // Fallback to original emails if enhancement fails
         return emailsBeforeEnhancement;
       }
