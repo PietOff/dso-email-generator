@@ -11,6 +11,7 @@
  * - AbelTalent: Capacity solutions & talent for fysieke leefomgeving.
  * - Tafelberg Advies (partner): Expert in regelanalyse, omgevingsplan, toepasbare regels.
  */
+import { enhanceAllEmails } from './groqEnhancer';
 
 /**
  * Generate a personalized email
@@ -35,7 +36,7 @@ function addParagraphBreaks(text) {
     return paragraphs.join('\n\n');
 }
 
-export const generateEmail = (baseStory, figures, options, selectedData, selectedContact, content, smartContext = '', monitorEnriched = null) => {
+export const generateEmail = async (baseStory, figures, options, selectedData, selectedContact, content, smartContext = '', monitorEnriched = null) => {
     if (!selectedData) return { email1: '', email2: '', email3: '' };
 
     const { algemeen = {}, scoreTeksten = {}, functieTeksten = {}, ctas = {}, emailTeksten = {} } = content || {};
@@ -312,9 +313,23 @@ export const generateEmail = (baseStory, figures, options, selectedData, selecte
         return `${greeting}\n\n${body}\n\n${signature}`;
     };
 
-    return {
-        email1: generateEmail1(),
-        email2: generateEmail2(),
-        email3: generateEmail3()
+    const emailsBeforeEnhancement = {
+            email1: generateEmail1(),
+            email2: generateEmail2(),
+            email3: generateEmail3()
     };
-};
+
+      // Automatically enhance all emails with GROQ while preserving sheet data
+      const enhancementContext = {
+              tone: isInformeel ? 'informal' : 'professional',
+              recipientName: selectedContact?.naam || '',
+              gemeente: gemeenteNaam
+      };
+
+      try {
+              const enhancedEmails = await enhanceAllEmails(emailsBeforeEnhancement, enhancementContext);
+              return enhancedEmails;
+      } catch (error) {
+              console.error('Error during GROQ enhancement, returning original emails:', error);
+              // Fallback to original emails if enhancement fails
+        return emailsBeforeEnhancement;
