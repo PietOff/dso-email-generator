@@ -333,3 +333,5 @@ export const generateEmail = async (baseStory, figures, options, selectedData, s
               console.error('Error during GROQ enhancement, returning original emails:', error);
               // Fallback to original emails if enhancement fails
         return emailsBeforeEnhancement;
+      }
+};
