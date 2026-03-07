@@ -9,7 +9,7 @@ import DsoMap from './components/DsoMap';
 function App() {
   const [baseStory, setBaseStory] = useState("Vanuit AbelTalent en onze partner Tafelberg Advies werken we dagelijks samen met gemeenten aan de Omgevingswet — van regelanalyse en vragenbomen tot capaciteitsvraagstukken. We kennen de uitdagingen, en helpen daar graag bij.");
   const [selectedGemeente, setSelectedGemeente] = useState('');
-  const [figures, setFigures] = useState({ kpi1: '', kpi2: '', kpi3: '', kpi4: '' });
+  const [figures, setFigures] = useState({ kpi1: '', kpi2: ', kpi3: '', kpi4: '' });
   const [options, setOptions] = useState({
     toon: 'professioneel',
     doel: 'eerste-contact',
@@ -241,10 +241,10 @@ function App() {
     setFigures({ ...figures, [e.target.name]: e.target.value });
   };
 
-  const generate = () => {
+  const generate = async () => {
     const enrichedName = selectedGemeente ? selectedGemeente.replace(/^gemeente\s+/i, '').trim().toLowerCase() : '';
     const enriched = monitorData && enrichedName ? monitorData[enrichedName] : null;
-    const output = generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
+    const output = await generateEmail(baseStory, figures, options, selectedData, selectedContact, sheetContent, smartContext, enriched);
     setGeneratedEmails(output);
     setActiveTab('email1');
 
