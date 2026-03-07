@@ -9,7 +9,7 @@ import DsoMap from './components/DsoMap';
 function App() {
   const [baseStory, setBaseStory] = useState("Vanuit AbelTalent en onze partner Tafelberg Advies werken we dagelijks samen met gemeenten aan de Omgevingswet — van regelanalyse en vragenbomen tot capaciteitsvraagstukken. We kennen de uitdagingen, en helpen daar graag bij.");
   const [selectedGemeente, setSelectedGemeente] = useState('');
-  const [figures, setFigures] = useState({ kpi1: '', kpi2: ', kpi3: '', kpi4: '' });
+  const [figures, setFigures] = useState({ kpi1: '', kpi2: '', kpi3: '', kpi4: '' });
   const [options, setOptions] = useState({
     toon: 'professioneel',
     doel: 'eerste-contact',
