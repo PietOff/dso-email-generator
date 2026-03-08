@@ -114,7 +114,7 @@ export async function fetchContent() {
         // Parse Email Teksten tab: key → { professioneel, informeel }
         const emailTeksten = {};
         emailRows.forEach(row => {
-            const key = row['key'] || '';
+            const key = row['sleutel'] || row['key'] || '';
             if (key) {
                 emailTeksten[key] = {
                     professioneel: row['tekst_professioneel'] || '',
