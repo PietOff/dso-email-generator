@@ -301,7 +301,17 @@ export const generateEmail = async (baseStory, figures, options, selectedData, s
         const enhancementContext = {
                   tone: isInformeel ? 'informal' : 'professional',
                   recipientName: selectedContact?.naam || '',
-                  gemeente: gemeenteNaam
+                  gemeente: gemeenteNaam,
+                                contactFunctie: selectedContact?.functie || '',
+                                figures: figures,
+                                sheetContent: {
+                                                                emailTeksten: emailTeksten,
+                                                                scoreTeksten: scoreTeksten,
+                                                                functieTeksten: functieTeksten,
+                                                                ctas: ctas,
+                                                                baseStory: baseStory,
+                                                                algemeen: algemeen,
+                                }
         };
 
         try {
